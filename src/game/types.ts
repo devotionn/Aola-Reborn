@@ -8,6 +8,11 @@ export interface BaseStats {
   speed: number;
 }
 
+export interface GrowthRule {
+  level: number;
+  targetSpeciesId: string;
+}
+
 export interface Species {
   id: string;
   name: string;
@@ -17,6 +22,7 @@ export interface Species {
   baseStats: BaseStats;
   moveIds: string[];
   tameRate: number;
+  growth?: GrowthRule;
 }
 
 export interface Move {
