@@ -4,14 +4,29 @@ export const species: Record<string, Species> = {
   emberMochi: {
     id: 'emberMochi', name: '炽尾团子', element: 'fire', symbol: '炎', description: '热情又好奇的旅行伙伴。',
     baseStats: { hp: 62, spirit: 70, focus: 52, speed: 64 }, moveIds: ['emberTap', 'starBump', 'flareRush', 'solarBlink'], tameRate: 0.42,
+    growth: { level: 10, targetSpeciesId: 'solarFlare' },
+  },
+  solarFlare: {
+    id: 'solarFlare', name: '曜焰灵', element: 'fire', symbol: '曜炎', description: '炽尾团子成长后的姿态，尾焰像一枚持续燃烧的小太阳。',
+    baseStats: { hp: 78, spirit: 88, focus: 65, speed: 76 }, moveIds: ['flareRush', 'solarBlink', 'starBump', 'cometDash'], tameRate: 0.18,
   },
   rippleFin: {
     id: 'rippleFin', name: '澜鳍兽', element: 'water', symbol: '澜', description: '喜欢在星港水边散步。',
     baseStats: { hp: 68, spirit: 62, focus: 60, speed: 58 }, moveIds: ['bubblePop', 'starBump', 'tidePulse', 'moonTide'], tameRate: 0.44,
+    growth: { level: 10, targetSpeciesId: 'azureTide' },
+  },
+  azureTide: {
+    id: 'azureTide', name: '沧澜兽', element: 'water', symbol: '沧', description: '澜鳍兽成长后的姿态，可以感知很远处的潮汐与星光。',
+    baseStats: { hp: 86, spirit: 78, focus: 78, speed: 67 }, moveIds: ['tidePulse', 'moonTide', 'bubblePop', 'cometDash'], tameRate: 0.18,
   },
   sproutTanuki: {
     id: 'sproutTanuki', name: '森芽狸', element: 'nature', symbol: '芽', description: '头顶的小芽会随着心情开合。',
     baseStats: { hp: 66, spirit: 64, focus: 58, speed: 62 }, moveIds: ['leafCut', 'starBump', 'seedBurst', 'vineArc'], tameRate: 0.45,
+    growth: { level: 10, targetSpeciesId: 'groveCrown' },
+  },
+  groveCrown: {
+    id: 'groveCrown', name: '森冠狸', element: 'nature', symbol: '森', description: '森芽狸成长后的姿态，枝叶形成了像王冠一样的纹路。',
+    baseStats: { hp: 84, spirit: 80, focus: 74, speed: 72 }, moveIds: ['vineArc', 'seedBurst', 'leafCut', 'cometDash'], tameRate: 0.18,
   },
   voltFinch: {
     id: 'voltFinch', name: '闪羽雀', element: 'electric', symbol: '闪', description: '总在追逐远处的亮光。',
