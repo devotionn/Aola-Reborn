@@ -16,8 +16,12 @@ export class BattleScene extends Phaser.Scene {
   private visitorHpFill!: Phaser.GameObjects.Rectangle;
   private partnerHpText!: Phaser.GameObjects.Text;
   private visitorHpText!: Phaser.GameObjects.Text;
+  private partnerNameText!: Phaser.GameObjects.Text;
+  private partnerSymbol!: Phaser.GameObjects.Text;
   private captureText!: Phaser.GameObjects.Text;
   private expText!: Phaser.GameObjects.Text;
+  private moveLabels: Phaser.GameObjects.Text[] = [];
+  private switchOverlay?: Phaser.GameObjects.Container;
 
   constructor() { super('battle'); }
 
@@ -48,27 +52,29 @@ export class BattleScene extends Phaser.Scene {
       backgroundColor: '#0b1433cc', padding: { x: 18, y: 12 },
     }).setOrigin(0.5);
 
-    const partnerData = species[this.partner.speciesId];
-    partnerData.moveIds.slice(0, 4).forEach((moveId, index) => {
-      const move = moves[moveId];
+    for (let index = 0; index < 4; index += 1) {
       const x = 245 + (index % 2) * 395;
       const y = 550 + Math.floor(index / 2) * 67;
       const button = this.add.rectangle(x, y, 350, 52, 0x284a7e, 0.96).setStrokeStyle(2, 0x86c9ff).setInteractive({ useHandCursor: true });
-      const label = this.add.text(x, y, `${index + 1}. ${move.name}  ·  ${this.elementName(move.element)}  ·  ${move.rating}`, {
-        fontSize: '17px', fontStyle: 'bold', color: '#ffffff',
-      }).setOrigin(0.5);
+      const label = this.add.text(x, y, '', { fontSize: '17px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
       button.on('pointerover', () => button.setFillStyle(0x3766a3));
       button.on('pointerout', () => button.setFillStyle(0x284a7e));
       button.on('pointerdown', () => this.playRound(index));
       label.setDepth(2);
-    });
+      this.moveLabels.push(label);
+    }
 
-    const captureButton = this.add.rectangle(1030, 568, 270, 66, request.boss ? 0x4b4f65 : 0x2f725c, 0.98)
+    const captureButton = this.add.rectangle(1030, 552, 270, 58, request.boss ? 0x4b4f65 : 0x2f725c, 0.98)
       .setStrokeStyle(2, request.boss ? 0x8e94ad : 0x9ceac7).setInteractive({ useHandCursor: !request.boss });
-    this.captureText = this.add.text(1030, 568, '', { fontSize: '17px', fontStyle: 'bold', color: '#ffffff', align: 'center' }).setOrigin(0.5);
+    this.captureText = this.add.text(1030, 552, '', { fontSize: '16px', fontStyle: 'bold', color: '#ffffff', align: 'center' }).setOrigin(0.5);
     captureButton.on('pointerdown', () => this.tryCapture());
-    const leaveButton = this.add.rectangle(1030, 642, 270, 44, 0x3b4564, 0.96).setStrokeStyle(1, 0x91a3c8).setInteractive({ useHandCursor: true });
-    this.add.text(1030, 642, `ESC · 返回${this.returnLabel()}`, { fontSize: '15px', color: '#dce7ff' }).setOrigin(0.5);
+
+    const switchButton = this.add.rectangle(1030, 620, 270, 42, 0x5a477c, 0.96).setStrokeStyle(1, 0xb5a5d7).setInteractive({ useHandCursor: true });
+    this.add.text(1030, 620, 'Q · 更换伙伴', { fontSize: '15px', color: '#f1e9ff' }).setOrigin(0.5);
+    switchButton.on('pointerdown', () => this.openSwitchMenu());
+
+    const leaveButton = this.add.rectangle(1030, 670, 270, 36, 0x3b4564, 0.96).setStrokeStyle(1, 0x91a3c8).setInteractive({ useHandCursor: true });
+    this.add.text(1030, 670, `ESC · 返回${this.returnLabel()}`, { fontSize: '14px', color: '#dce7ff' }).setOrigin(0.5);
     leaveButton.on('pointerdown', () => this.leave());
 
     const keyboard = this.input.keyboard;
@@ -78,8 +84,10 @@ export class BattleScene extends Phaser.Scene {
       keyboard.on('keydown-THREE', () => this.playRound(2));
       keyboard.on('keydown-FOUR', () => this.playRound(3));
       keyboard.on('keydown-C', () => this.tryCapture());
+      keyboard.on('keydown-Q', () => this.openSwitchMenu());
       keyboard.on('keydown-ESC', () => this.leave());
     }
+    this.refreshPartnerPresentation();
     this.refreshMeters();
     const intro = request.boss
       ? `守护星灵 ${species[this.visitor.speciesId].name} 挡在祭坛前！这是一次正式挑战。`
@@ -90,11 +98,12 @@ export class BattleScene extends Phaser.Scene {
   private createStatusPanel(x: number, y: number, creature: CreatureInstance, partnerSide: boolean): void {
     const data = species[creature.speciesId];
     this.add.rectangle(x + 185, y + 58, 370, 116, 0x0b1433, 0.9).setStrokeStyle(2, 0x657fb5);
-    this.add.text(x + 18, y + 13, `${data.symbol} ${data.name}  Lv.${creature.level}`, { fontSize: '21px', fontStyle: 'bold', color: '#ffffff' });
+    const nameText = this.add.text(x + 18, y + 13, `${data.symbol} ${data.name}  Lv.${creature.level}`, { fontSize: '21px', fontStyle: 'bold', color: '#ffffff' });
     this.add.rectangle(x + 168, y + 62, 280, 15, 0x202b47).setOrigin(0, 0.5);
     const fill = this.add.rectangle(x + 168, y + 62, 280, 15, partnerSide ? 0x6fd59b : 0xf29b79).setOrigin(0, 0.5);
     const hpText = this.add.text(x + 18, y + 82, '', { fontSize: '13px', color: '#bfd2f3' });
     if (partnerSide) {
+      this.partnerNameText = nameText;
       this.partnerHpFill = fill;
       this.partnerHpText = hpText;
       this.expText = this.add.text(x + 180, y + 84, '', { fontSize: '12px', color: '#ffe99b' });
@@ -108,13 +117,14 @@ export class BattleScene extends Phaser.Scene {
     const data = species[creature.speciesId];
     this.add.circle(x, y, partnerSide ? 88 : this.request.boss ? 92 : 78, partnerSide ? 0xf6d98c : this.request.boss ? 0xe6db9c : 0x94bbec)
       .setStrokeStyle(this.request.boss && !partnerSide ? 7 : 5, 0xffffff, 0.6);
-    this.add.text(x, y, data.symbol, {
+    const symbol = this.add.text(x, y, data.symbol, {
       fontSize: partnerSide ? '66px' : this.request.boss ? '70px' : '58px', fontStyle: 'bold', color: '#152247',
     }).setOrigin(0.5);
+    if (partnerSide) this.partnerSymbol = symbol;
   }
 
   private playRound(index: number): void {
-    if (this.busy || this.partner.currentHp <= 0 || this.visitor.currentHp <= 0) return;
+    if (this.busy || this.switchOverlay || this.partner.currentHp <= 0 || this.visitor.currentHp <= 0) return;
     const moveId = species[this.partner.speciesId].moveIds[index];
     if (!moveId) return;
     this.busy = true;
@@ -158,8 +168,70 @@ export class BattleScene extends Phaser.Scene {
     if (affinity > 1) this.cameras.main.shake(90, 0.004);
   }
 
+  private openSwitchMenu(): void {
+    if (this.busy || this.switchOverlay || this.visitor.currentHp <= 0) return;
+    const available = this.save.party.some((creature, index) => index > 0 && creature.currentHp > 0);
+    if (!available) { this.setLog('当前没有其他可以上场的伙伴。'); return; }
+
+    const panel = this.add.container(0, 0).setDepth(100);
+    panel.add(this.add.rectangle(640, 360, 920, 390, 0x091126, 0.98).setStrokeStyle(3, 0xa595d1));
+    panel.add(this.add.text(640, 205, '选择上场伙伴', { fontSize: '28px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5));
+    panel.add(this.add.text(640, 244, '更换伙伴会让野生星灵获得一次行动机会', { fontSize: '14px', color: '#b9c8e4' }).setOrigin(0.5));
+
+    this.save.party.forEach((creature, index) => {
+      const data = species[creature.speciesId];
+      const x = 300 + index * 225;
+      const usable = index > 0 && creature.currentHp > 0;
+      const card = this.add.rectangle(x, 365, 190, 170, usable ? 0x263d69 : 0x252b3a, 1)
+        .setStrokeStyle(2, usable ? 0x92b7ec : 0x596173)
+        .setInteractive({ useHandCursor: usable });
+      if (usable) card.on('pointerdown', () => this.switchPartner(index, true));
+      panel.add(card);
+      panel.add(this.add.text(x, 318, `${data.symbol} ${data.name}`, { fontSize: '17px', fontStyle: 'bold', color: usable ? '#ffffff' : '#8994a8' }).setOrigin(0.5));
+      panel.add(this.add.text(x, 356, `Lv.${creature.level}`, { fontSize: '13px', color: '#b4c7e8' }).setOrigin(0.5));
+      panel.add(this.add.text(x, 388, `HP ${creature.currentHp}/${maxHpFor(creature)}`, { fontSize: '13px', color: creature.currentHp > 0 ? '#9fe5c8' : '#bf7f7f' }).setOrigin(0.5));
+      panel.add(this.add.text(x, 432, index === 0 ? '当前上场' : creature.currentHp <= 0 ? '无法上场' : '点击更换', { fontSize: '12px', color: usable ? '#ffe59b' : '#7f899c' }).setOrigin(0.5));
+    });
+
+    const close = this.add.text(640, 505, 'Q / ESC · 取消', { fontSize: '14px', color: '#dbe6f7' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    close.on('pointerdown', () => this.closeSwitchMenu());
+    panel.add(close);
+    this.switchOverlay = panel;
+  }
+
+  private closeSwitchMenu(): void {
+    this.switchOverlay?.destroy(true);
+    this.switchOverlay = undefined;
+  }
+
+  private switchPartner(index: number, visitorResponds: boolean): void {
+    if (index <= 0 || index >= this.save.party.length) return;
+    const selected = this.save.party[index];
+    if (selected.currentHp <= 0) return;
+    const previousName = species[this.partner.speciesId].name;
+    const [next] = this.save.party.splice(index, 1);
+    this.save.party.unshift(next);
+    this.partner = next;
+    this.closeSwitchMenu();
+    this.refreshPartnerPresentation();
+    writeSave(this.save);
+
+    if (!visitorResponds) {
+      this.busy = false;
+      this.setLog(`${previousName} 暂时退下，${species[next.speciesId].name} 接替上场！`);
+      return;
+    }
+
+    this.busy = true;
+    const response = chooseNpcMove(this.visitor);
+    const note = this.perform(this.visitor, this.partner, response);
+    this.refreshMeters();
+    this.setLog(`${species[next.speciesId].name} 上场！${note}`);
+    this.time.delayedCall(600, () => this.resolveRoundEnd());
+  }
+
   private tryCapture(): void {
-    if (this.busy || this.visitor.currentHp <= 0) return;
+    if (this.busy || this.switchOverlay || this.visitor.currentHp <= 0) return;
     if (this.request.boss) { this.setLog('守护星灵不会在任务挑战中被捕捉。先完成它的考验。'); return; }
     if (this.save.capsules <= 0) { this.setLog('捕捉胶囊已经用完，回研究站补给。'); return; }
     this.busy = true;
@@ -186,7 +258,15 @@ export class BattleScene extends Phaser.Scene {
 
   private resolveRoundEnd(): void {
     if (this.visitor.currentHp <= 0) { this.completeEncounter(); return; }
-    if (this.partner.currentHp <= 0) { this.handleRetreat(); return; }
+    if (this.partner.currentHp <= 0) {
+      const replacementIndex = this.save.party.findIndex((creature, index) => index > 0 && creature.currentHp > 0);
+      if (replacementIndex > 0) {
+        this.time.delayedCall(450, () => this.switchPartner(replacementIndex, false));
+        return;
+      }
+      this.handleRetreat();
+      return;
+    }
     writeSave(this.save);
     this.busy = false;
     this.refreshMeters();
@@ -197,27 +277,33 @@ export class BattleScene extends Phaser.Scene {
     const credits = this.request.rewardCredits ?? (12 + this.visitor.level * 4);
     const result = grantExp(this.partner, exp);
     this.save.credits += credits;
+    if (result.grownTo && !this.save.discoveredSpecies.includes(result.grownTo)) {
+      this.save.discoveredSpecies.push(result.grownTo);
+    }
     if (this.request.victoryFlag) {
       this.save.flags ??= {};
       this.save.flags[this.request.victoryFlag] = true;
     }
     writeSave(this.save);
+    this.refreshPartnerPresentation();
     this.refreshMeters();
     const levelNote = result.levelsGained ? ` 升到 Lv.${this.partner.level}！` : '';
+    const growthNote = result.grownTo ? ` 成长为 ${species[result.grownTo].name}！` : '';
     const title = this.request.boss ? '守护挑战完成！' : '对局胜利！';
-    this.setLog(`${title}获得 ${exp} EXP 与 ${credits} 星币。${levelNote}`);
-    this.time.delayedCall(1150, () => this.finishScene());
+    this.setLog(`${title}获得 ${exp} EXP 与 ${credits} 星币。${levelNote}${growthNote}`);
+    this.time.delayedCall(1350, () => this.finishScene());
   }
 
   private handleRetreat(): void {
     this.partner.currentHp = 1;
     writeSave(this.save);
     this.refreshMeters();
-    this.setLog(`${species[this.partner.speciesId].name} 已经没有体力。先撤回并调整队伍状态。`);
-    this.time.delayedCall(1100, () => this.finishScene());
+    this.setLog('队伍已经没有可以继续上场的伙伴。系统保留队首 1 点体力并撤回，请尽快恢复。');
+    this.time.delayedCall(1200, () => this.finishScene());
   }
 
   private leave(): void {
+    if (this.switchOverlay) { this.closeSwitchMenu(); return; }
     if (this.busy) return;
     writeSave(this.save);
     this.finishScene();
@@ -233,6 +319,16 @@ export class BattleScene extends Phaser.Scene {
 
   private returnLabel(): string {
     return this.returnScene() === 'wild' ? '星落原野' : '星港';
+  }
+
+  private refreshPartnerPresentation(): void {
+    const data = species[this.partner.speciesId];
+    this.partnerNameText.setText(`${data.symbol} ${data.name}  Lv.${this.partner.level}`);
+    this.partnerSymbol.setText(data.symbol);
+    data.moveIds.slice(0, 4).forEach((moveId, index) => {
+      const move = moves[moveId];
+      this.moveLabels[index]?.setText(`${index + 1}. ${move.name}  ·  ${this.elementName(move.element)}  ·  ${move.rating}`);
+    });
   }
 
   private refreshMeters(): void {
