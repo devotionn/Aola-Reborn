@@ -13,6 +13,8 @@ export class DialogueBox {
     private readonly pages: string[],
     private readonly onComplete?: () => void,
   ) {
+    void this.scene;
+    void this.speaker;
     this.container = scene.add.container(0, 0).setDepth(200);
     const shade = scene.add.rectangle(640, 360, 1280, 720, 0x050912, 0.2).setInteractive();
     const panel = scene.add.rectangle(640, 590, 1120, 190, 0x0b1433, 0.97)
