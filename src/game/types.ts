@@ -1,5 +1,5 @@
 export type ElementType = 'fire' | 'water' | 'nature' | 'electric' | 'rock' | 'neutral';
-export type SceneKey = 'world' | 'wild';
+export type SceneKey = 'world' | 'wild' | 'grove';
 
 export interface BaseStats {
   hp: number;
@@ -42,11 +42,16 @@ export interface CreatureInstance {
   currentHp: number;
 }
 
+export interface PlayerInventory {
+  tonics: number;
+}
+
 export interface PlayerSave {
   version: 1;
   trainerName: string;
   credits: number;
   capsules: number;
+  inventory?: PlayerInventory;
   party: CreatureInstance[];
   collection: CreatureInstance[];
   discoveredSpecies: string[];
