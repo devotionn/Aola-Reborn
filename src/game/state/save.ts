@@ -22,6 +22,7 @@ export function createFreshSave(starterId: string): PlayerSave {
     trainerName: '星际训练师',
     credits: 800,
     capsules: 8,
+    inventory: { tonics: 1 },
     party: [starter],
     collection: [],
     discoveredSpecies: [starterId],
@@ -29,19 +30,25 @@ export function createFreshSave(starterId: string): PlayerSave {
   };
 }
 
+function normalizeSave(save: PlayerSave): PlayerSave {
+  save.inventory ??= { tonics: 0 };
+  save.flags ??= {};
+  return save;
+}
+
 export function loadSave(): PlayerSave | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PlayerSave;
-    return parsed.version === 1 ? parsed : null;
+    return parsed.version === 1 ? normalizeSave(parsed) : null;
   } catch {
     return null;
   }
 }
 
 export function writeSave(save: PlayerSave): void {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  localStorage.setItem(SAVE_KEY, JSON.stringify(normalizeSave(save)));
 }
 
 export function clearSave(): void {
