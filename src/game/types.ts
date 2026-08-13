@@ -44,6 +44,7 @@ export interface PlayerSave {
   collection: CreatureInstance[];
   discoveredSpecies: string[];
   world: { x: number; y: number };
+  flags?: Record<string, boolean>;
 }
 
 export interface BattleRequest {
