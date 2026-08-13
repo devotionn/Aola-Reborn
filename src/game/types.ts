@@ -1,4 +1,5 @@
 export type ElementType = 'fire' | 'water' | 'nature' | 'electric' | 'rock' | 'neutral';
+export type SceneKey = 'world' | 'wild';
 
 export interface BaseStats {
   hp: number;
@@ -50,4 +51,8 @@ export interface PlayerSave {
 export interface BattleRequest {
   wildSpeciesId: string;
   wildLevel: number;
+  returnScene?: SceneKey;
+  boss?: boolean;
+  rewardCredits?: number;
+  victoryFlag?: string;
 }
