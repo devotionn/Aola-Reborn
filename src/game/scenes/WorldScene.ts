@@ -46,7 +46,7 @@ export class WorldScene extends Phaser.Scene {
     this.hudTitle = this.add.text(42, 30, '', { fontSize: '19px', fontStyle: 'bold', color: '#fff' }).setDepth(21);
     this.hudDetail = this.add.text(42, 57, '', { fontSize: '14px', color: '#acd9ff' }).setDepth(21);
     this.refreshHud();
-    this.statusText = this.add.text(640, 674, 'WASD 移动 · E 交互 · P 星灵仓库 · 草地随机遭遇 · R 测试遭遇', { fontSize: '15px', color: '#eef8ff', backgroundColor: '#0d1738cc', padding: { x: 18, y: 10 } }).setOrigin(0.5).setDepth(25);
+    this.statusText = this.add.text(640, 674, 'WASD 移动 · E 交互 · P 星灵仓库 · 星门前往星落原野 · R 测试遭遇', { fontSize: '15px', color: '#eef8ff', backgroundColor: '#0d1738cc', padding: { x: 18, y: 10 } }).setOrigin(0.5).setDepth(25);
   }
 
   update(_time: number, delta: number): void {
@@ -76,7 +76,7 @@ export class WorldScene extends Phaser.Scene {
     this.drawService(250, 190, '研究站', '首次补给');
     this.drawService(1020, 190, '星灵仓库', 'E / P 打开');
     this.drawService(300, 400, '训练场', '建设中');
-    this.drawService(980, 400, '星门', '尚未稳定');
+    this.drawService(980, 400, '星门', '星落原野 · E');
     this.add.rectangle(165, 560, 250, 180, 0x5caa71, 0.8).setStrokeStyle(4, 0x347048);
     this.add.rectangle(1115, 560, 250, 180, 0x5caa71, 0.8).setStrokeStyle(4, 0x347048);
     this.add.text(165, 560, '野生草地\nENCOUNTER ZONE', { fontSize: '19px', fontStyle: 'bold', color: '#163c28', align: 'center' }).setOrigin(0.5);
@@ -94,8 +94,8 @@ export class WorldScene extends Phaser.Scene {
     if (this.near(640, 257, 150)) { this.restoreParty(); return; }
     if (this.near(1020, 190, 125)) { this.openCollection(); return; }
     if (this.near(250, 190, 125)) { this.claimResearchKit(); return; }
-    if (this.near(300, 400, 120)) { this.statusText.setText('训练场正在施工：后续将承载教学、属性试炼与 Boss 演练。'); return; }
-    if (this.near(980, 400, 120)) { this.statusText.setText('星门暂时无法定位新的星区。'); return; }
+    if (this.near(300, 400, 120)) { this.statusText.setText('训练场正在施工：后续将承载教学与属性试炼。'); return; }
+    if (this.near(980, 400, 120)) { writeSave(this.save); this.scene.start('wild'); return; }
     this.statusText.setText('这里没有可以交互的设施。靠近建筑后再按 E。');
   }
 
@@ -199,7 +199,7 @@ export class WorldScene extends Phaser.Scene {
     this.encounterCooldown = 1600;
     writeSave(this.save);
     const wildSpeciesId = wildSpeciesIds[Math.floor(Math.random() * wildSpeciesIds.length)];
-    const request: BattleRequest = { wildSpeciesId, wildLevel: Phaser.Math.Clamp(leader.level + Phaser.Math.Between(-2, 1), 2, 12) };
+    const request: BattleRequest = { wildSpeciesId, wildLevel: Phaser.Math.Clamp(leader.level + Phaser.Math.Between(-2, 1), 2, 12), returnScene: 'world' };
     this.statusText.setText(`发现野生 ${species[wildSpeciesId].name}！`);
     this.time.delayedCall(240, () => this.scene.start('battle', request));
   }
