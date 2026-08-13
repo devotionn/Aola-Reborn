@@ -8,6 +8,11 @@ export interface TurnOutcome {
   hit: boolean;
 }
 
+export interface GrowthResult {
+  levelsGained: number;
+  grownTo?: string;
+}
+
 export function maxHpFor(creature: CreatureInstance): number {
   const base = species[creature.speciesId].baseStats.hp;
   return Math.floor(base + creature.level * 5.2);
@@ -42,16 +47,27 @@ export function expToNext(level: number): number {
   return 30 + level * 14;
 }
 
-export function grantExp(creature: CreatureInstance, amount: number): { levelsGained: number } {
+export function applyGrowth(creature: CreatureInstance): string | undefined {
+  const rule = species[creature.speciesId].growth;
+  if (!rule || creature.level < rule.level || !species[rule.targetSpeciesId]) return undefined;
+  creature.speciesId = rule.targetSpeciesId;
+  creature.currentHp = maxHpFor(creature);
+  return rule.targetSpeciesId;
+}
+
+export function grantExp(creature: CreatureInstance, amount: number): GrowthResult {
   let levelsGained = 0;
+  let grownTo: string | undefined;
   creature.exp += amount;
   while (creature.exp >= expToNext(creature.level)) {
     creature.exp -= expToNext(creature.level);
     creature.level += 1;
     levelsGained += 1;
+    grownTo = applyGrowth(creature) ?? grownTo;
     creature.currentHp = maxHpFor(creature);
   }
-  return { levelsGained };
+  grownTo = applyGrowth(creature) ?? grownTo;
+  return { levelsGained, grownTo };
 }
 
 export function captureChance(creature: CreatureInstance): number {
