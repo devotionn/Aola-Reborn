@@ -13,6 +13,8 @@ export const moves: Record<string, Move> = {
   sparkNibble: { id: 'sparkNibble', name: '电光', element: 'electric', rating: 40, accuracy: 0.95, description: '身边闪过短促电光。' },
   staticBolt: { id: 'staticBolt', name: '静电环', element: 'electric', rating: 50, accuracy: 0.91, description: '静电形成明亮圆环。' },
   thunderSkip: { id: 'thunderSkip', name: '雷跃', element: 'electric', rating: 63, accuracy: 0.85, description: '借电流高速跃向目标。' },
+  thunderCrown: { id: 'thunderCrown', name: '雷冠', element: 'electric', rating: 72, accuracy: 0.82, description: '将蓄积的电流聚成耀眼雷冠。' },
+  stormRoar: { id: 'stormRoar', name: '风暴咆哮', element: 'neutral', rating: 58, accuracy: 0.92, description: '用震荡星辉撕开周围气流。' },
   pebbleShot: { id: 'pebbleShot', name: '岩纹', element: 'rock', rating: 42, accuracy: 0.94, description: '地面浮现岩石纹路。' },
   stoneOrbit: { id: 'stoneOrbit', name: '岩环', element: 'rock', rating: 56, accuracy: 0.89, description: '碎岩围绕身体快速旋转。' },
   starBump: { id: 'starBump', name: '星跃', element: 'neutral', rating: 40, accuracy: 1, description: '借着星光向前跃动。' },
