@@ -1,5 +1,5 @@
 import type { PlayerSave } from '../types';
-import { grantExp } from './BattleSystem';
+import { grantExp, maxHpFor } from './BattleSystem';
 
 export const CAPSULE_SERVICE_FEE = 120;
 export const CAPSULE_SERVICE_AMOUNT = 3;
@@ -25,6 +25,20 @@ export function requestTonicSupply(save: PlayerSave): ServiceResult {
   save.credits -= TONIC_SERVICE_FEE;
   save.inventory.tonics += 1;
   return { ok: true, message: '补给完成：星辉恢复剂 ×1。' };
+}
+
+export function useTonicOnLeader(save: PlayerSave): ServiceResult {
+  save.inventory ??= { tonics: 0 };
+  const leader = save.party[0];
+  if (!leader) return { ok: false, message: '当前没有队首伙伴。' };
+  if (save.inventory.tonics <= 0) return { ok: false, message: '没有可用的星辉恢复剂。' };
+  const maximum = maxHpFor(leader);
+  if (leader.currentHp >= maximum) return { ok: false, message: '队首体力已经是满状态。' };
+
+  const restored = Math.max(1, Math.floor(maximum * 0.45));
+  leader.currentHp = Math.min(maximum, leader.currentHp + restored);
+  save.inventory.tonics -= 1;
+  return { ok: true, message: `使用星辉恢复剂，队首恢复至 ${leader.currentHp}/${maximum} HP。` };
 }
 
 export function runTrainingSession(save: PlayerSave): ServiceResult {
