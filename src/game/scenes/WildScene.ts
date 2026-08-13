@@ -38,7 +38,7 @@ export class WildScene extends Phaser.Scene {
     keyboard.on('keydown-SPACE', () => this.dialogue?.next());
     keyboard.on('keydown-ESC', () => this.returnToHub());
 
-    this.statusText = this.add.text(640, 682, 'WASD 移动 · E 交互 · 原野草地会随机遭遇 · ESC 返回星港', {
+    this.statusText = this.add.text(640, 682, 'WASD 移动 · E 交互 · 北侧远星门前往第二调查区 · ESC 返回星港', {
       fontSize: '14px', color: '#eef8ff', backgroundColor: '#0d1738dd', padding: { x: 18, y: 9 },
     }).setOrigin(0.5).setDepth(40);
     this.questText = this.add.text(42, 34, '', {
@@ -48,6 +48,8 @@ export class WildScene extends Phaser.Scene {
 
     if (this.save.flags.wildGuardianDefeated && !this.save.flags.wildQuestRewarded) {
       this.statusText.setText('曜角鹿已经平静下来。回去找研究员岚音领取调查奖励。');
+    } else if (this.save.flags.wildQuestRewarded && !this.save.flags.groveQuestRewarded) {
+      this.statusText.setText('远星门已经校准：北侧可前往第二调查区「烬苔林地」。');
     }
   }
 
@@ -81,6 +83,11 @@ export class WildScene extends Phaser.Scene {
     this.add.text(640, 70, '星落原野', { fontSize: '34px', fontStyle: 'bold', color: '#233a32' }).setOrigin(0.5);
     this.add.text(640, 108, 'STARFALL FIELD · 第一调查区', { fontSize: '13px', color: '#3d5a50' }).setOrigin(0.5);
 
+    this.add.rectangle(640, 170, 178, 56, this.save.flags?.wildQuestRewarded ? 0x344f7d : 0x626c6b, 0.96)
+      .setStrokeStyle(3, this.save.flags?.wildQuestRewarded ? 0xc1e1ff : 0x9da7a5);
+    this.add.text(640, 162, '远星门', { fontSize: '16px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(640, 184, this.save.flags?.wildQuestRewarded ? '烬苔林地 · E' : '完成调查后解锁', { fontSize: '11px', color: '#dceaff' }).setOrigin(0.5);
+
     this.add.circle(245, 226, 34, 0x335d79).setStrokeStyle(3, 0xc8ecff);
     this.add.text(245, 226, '岚', { fontSize: '22px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
     this.add.text(245, 274, '研究员 · 岚音', { fontSize: '14px', fontStyle: 'bold', color: '#17354b', backgroundColor: '#d9f2ffcc', padding: { x: 8, y: 4 } }).setOrigin(0.5);
@@ -99,6 +106,15 @@ export class WildScene extends Phaser.Scene {
 
   private interact(): void {
     if (this.dialogue) { this.dialogue.next(); return; }
+    if (this.near(640, 170, 105)) {
+      if (!this.save.flags?.wildQuestRewarded) {
+        this.statusText.setText('远星门尚未校准。先完成岚音的第一调查任务。');
+        return;
+      }
+      writeSave(this.save);
+      this.scene.start('grove');
+      return;
+    }
     if (this.near(245, 226, 110)) { this.talkResearcher(); return; }
     if (this.near(1035, 182, 125)) { this.inspectAltar(); return; }
     if (this.near(640, 654, 90)) { this.returnToHub(); return; }
@@ -130,12 +146,12 @@ export class WildScene extends Phaser.Scene {
         this.save.capsules += 3;
         writeSave(this.save);
         this.refreshQuest();
-        this.statusText.setText('调查完成！获得星币 ×360、捕捉胶囊 ×3。');
+        this.statusText.setText('调查完成！获得星币 ×360、捕捉胶囊 ×3。北侧远星门已经解锁。');
       });
       return;
     }
     if (flags.wildQuestRewarded) {
-      this.openDialogue('研究员 · 岚音', ['第一调查区已经稳定。等星门校准完成，我们就能前往更远的星区。']);
+      this.openDialogue('研究员 · 岚音', ['第一调查区已经稳定。北侧远星门已校准，可以前往第二调查区「烬苔林地」。']);
       return;
     }
     this.openDialogue('研究员 · 岚音', ['曜角鹿就在东北侧古星祭坛。靠近祭坛按 E 调查，记得保持队首状态。']);
@@ -202,7 +218,7 @@ export class WildScene extends Phaser.Scene {
     let text = '调查任务：与研究员岚音交谈';
     if (flags.wildQuestAccepted) text = '调查任务：前往古星祭坛';
     if (flags.wildGuardianDefeated && !flags.wildQuestRewarded) text = '调查任务：向岚音汇报';
-    if (flags.wildQuestRewarded) text = '调查任务：第一调查区已完成 ✓';
+    if (flags.wildQuestRewarded) text = '调查任务：第一调查区已完成 ✓ · 北侧远星门已开启';
     this.questText.setText(text);
   }
 
