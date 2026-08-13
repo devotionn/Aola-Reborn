@@ -36,6 +36,8 @@ export class WorldScene extends Phaser.Scene {
     keyboard.on('keydown-R', () => this.forceEncounter());
     keyboard.on('keydown-E', () => this.interact());
     keyboard.on('keydown-P', () => this.toggleCollection());
+    keyboard.on('keydown-G', () => this.openGuide());
+    keyboard.on('keydown-T', () => this.openRoster());
     keyboard.on('keydown-ESC', () => this.closeOverlay());
     keyboard.on('keydown-ONE', () => this.makeLeader(0));
     keyboard.on('keydown-TWO', () => this.makeLeader(1));
@@ -46,7 +48,9 @@ export class WorldScene extends Phaser.Scene {
     this.hudTitle = this.add.text(42, 30, '', { fontSize: '19px', fontStyle: 'bold', color: '#fff' }).setDepth(21);
     this.hudDetail = this.add.text(42, 57, '', { fontSize: '14px', color: '#acd9ff' }).setDepth(21);
     this.refreshHud();
-    this.statusText = this.add.text(640, 674, 'WASD 移动 · E 交互 · P 星灵仓库 · 星门前往星落原野 · R 测试遭遇', { fontSize: '15px', color: '#eef8ff', backgroundColor: '#0d1738cc', padding: { x: 18, y: 10 } }).setOrigin(0.5).setDepth(25);
+    this.statusText = this.add.text(640, 674, 'WASD 移动 · E 交互 · G 手册 · T 编组 · P 快览 · 星门探索', {
+      fontSize: '15px', color: '#eef8ff', backgroundColor: '#0d1738cc', padding: { x: 18, y: 10 },
+    }).setOrigin(0.5).setDepth(25);
   }
 
   update(_time: number, delta: number): void {
@@ -73,9 +77,9 @@ export class WorldScene extends Phaser.Scene {
     this.add.rectangle(640, 257, 320, 160, 0xd8e9ef).setStrokeStyle(4, 0x6989a1);
     this.add.text(640, 235, '星辉恢复中心', { fontSize: '27px', fontStyle: 'bold', color: '#30405d' }).setOrigin(0.5);
     this.add.text(640, 274, '靠近后按 E 恢复队伍', { fontSize: '14px', color: '#677995' }).setOrigin(0.5);
-    this.drawService(250, 190, '研究站', '首次补给');
-    this.drawService(1020, 190, '星灵仓库', 'E / P 打开');
-    this.drawService(300, 400, '训练场', '建设中');
+    this.drawService(250, 190, '研究站', this.save.flags?.researchStarterKit ? '补给服务 · E' : '首次补给 · E');
+    this.drawService(1020, 190, '星灵仓库', '编组 · E / T');
+    this.drawService(300, 400, '训练场', '训练服务 · E');
     this.drawService(980, 400, '星门', '星落原野 · E');
     this.add.rectangle(165, 560, 250, 180, 0x5caa71, 0.8).setStrokeStyle(4, 0x347048);
     this.add.rectangle(1115, 560, 250, 180, 0x5caa71, 0.8).setStrokeStyle(4, 0x347048);
@@ -92,11 +96,33 @@ export class WorldScene extends Phaser.Scene {
   private interact(): void {
     if (this.overlay) return;
     if (this.near(640, 257, 150)) { this.restoreParty(); return; }
-    if (this.near(1020, 190, 125)) { this.openCollection(); return; }
-    if (this.near(250, 190, 125)) { this.claimResearchKit(); return; }
-    if (this.near(300, 400, 120)) { this.statusText.setText('训练场正在施工：后续将承载教学与属性试炼。'); return; }
+    if (this.near(1020, 190, 125)) { this.openRoster(); return; }
+    if (this.near(250, 190, 125)) {
+      if (this.save.flags?.researchStarterKit) this.openFacility();
+      else this.claimResearchKit();
+      return;
+    }
+    if (this.near(300, 400, 120)) { this.openFacility(); return; }
     if (this.near(980, 400, 120)) { writeSave(this.save); this.scene.start('wild'); return; }
     this.statusText.setText('这里没有可以交互的设施。靠近建筑后再按 E。');
+  }
+
+  private openGuide(): void {
+    if (this.overlay) return;
+    writeSave(this.save);
+    this.scene.start('guide');
+  }
+
+  private openRoster(): void {
+    if (this.overlay) return;
+    writeSave(this.save);
+    this.scene.start('roster');
+  }
+
+  private openFacility(): void {
+    if (this.overlay) return;
+    writeSave(this.save);
+    this.scene.start('facility');
   }
 
   private restoreParty(): void {
@@ -108,16 +134,13 @@ export class WorldScene extends Phaser.Scene {
 
   private claimResearchKit(): void {
     this.save.flags ??= {};
-    if (this.save.flags.researchStarterKit) {
-      this.statusText.setText('研究员：首批补给已经领取。去草地记录更多星灵吧！');
-      return;
-    }
+    if (this.save.flags.researchStarterKit) { this.openFacility(); return; }
     this.save.flags.researchStarterKit = true;
     this.save.capsules += 4;
     this.save.credits += 120;
     writeSave(this.save);
     this.refreshHud();
-    this.statusText.setText('研究员送来补给：捕捉胶囊 ×4、星币 ×120。');
+    this.statusText.setText('研究员送来首批补给：捕捉胶囊 ×4、星币 ×120。再次按 E 可进入补给服务。');
   }
 
   private toggleCollection(): void {
@@ -128,9 +151,9 @@ export class WorldScene extends Phaser.Scene {
     if (this.overlay) return;
     const panel = this.add.container(0, 0).setDepth(100);
     panel.add(this.add.rectangle(640, 360, 1180, 640, 0x0b1433, 0.98).setStrokeStyle(3, 0x7699d4));
-    panel.add(this.add.text(92, 66, '星灵仓库', { fontSize: '34px', fontStyle: 'bold', color: '#ffffff' }));
+    panel.add(this.add.text(92, 66, '星灵快览', { fontSize: '34px', fontStyle: 'bold', color: '#ffffff' }));
     panel.add(this.add.text(92, 112, `发现 ${this.save.discoveredSpecies.length}/${Object.keys(species).length} · 队伍 ${this.save.party.length}/4 · 仓库 ${this.save.collection.length}`, { fontSize: '15px', color: '#a9c8ee' }));
-    panel.add(this.add.text(92, 154, '当前队伍 · 点击卡片或按 1–4 设置队首', { fontSize: '18px', fontStyle: 'bold', color: '#ffe59b' }));
+    panel.add(this.add.text(92, 154, '当前队伍 · 点击卡片或按 1–4 设置队首 · T 进入完整编组', { fontSize: '18px', fontStyle: 'bold', color: '#ffe59b' }));
     this.save.party.forEach((creature, index) => {
       const data = species[creature.speciesId];
       const x = 92 + index * 276;
@@ -155,7 +178,7 @@ export class WorldScene extends Phaser.Scene {
         panel.add(this.add.text(x + 14, y + 37, `HP ${creature.currentHp}/${maxHpFor(creature)}`, { fontSize: '11px', color: '#9fc4ef' }));
       });
     }
-    panel.add(this.add.text(640, 650, 'P / ESC 关闭', { fontSize: '14px', color: '#e4ecff' }).setOrigin(0.5));
+    panel.add(this.add.text(640, 650, 'P / ESC 关闭 · G 手册 · T 完整编组', { fontSize: '14px', color: '#e4ecff' }).setOrigin(0.5));
     this.overlay = panel;
   }
 
