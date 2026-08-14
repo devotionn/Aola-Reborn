@@ -36,7 +36,9 @@
       "name": "Points",
       "objects": [
         { "id": 7, "name": "return-gate", "type": "portal", "x": 575, "y": 625, "width": 130, "height": 48 },
-        { "id": 8, "name": "survey-beacon", "type": "quest", "x": 600, "y": 185, "width": 80, "height": 80 }
+        { "id": 8, "name": "survey-beacon", "type": "quest", "x": 600, "y": 185, "width": 80, "height": 80 },
+        { "id": 9, "name": "observer", "type": "npc", "x": 382, "y": 185, "width": 70, "height": 70 },
+        { "id": 10, "name": "mirror-nest", "type": "quest", "x": 842, "y": 176, "width": 90, "height": 90 }
       ],
       "opacity": 1,
       "type": "objectgroup",
@@ -46,7 +48,7 @@
     }
   ],
   "nextlayerid": 4,
-  "nextobjectid": 9,
+  "nextobjectid": 11,
   "orientation": "orthogonal",
   "renderorder": "right-down",
   "tiledversion": "1.11.2",
