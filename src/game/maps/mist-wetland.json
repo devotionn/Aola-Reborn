@@ -1,0 +1,59 @@
+{
+  "compressionlevel": -1,
+  "height": 18,
+  "infinite": false,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Barriers",
+      "objects": [
+        { "id": 1, "name": "west-mire", "type": "water", "x": 90, "y": 180, "width": 260, "height": 180 },
+        { "id": 2, "name": "east-mire", "type": "water", "x": 930, "y": 210, "width": 250, "height": 170 },
+        { "id": 3, "name": "mirror-pond", "type": "water", "x": 485, "y": 360, "width": 310, "height": 170 },
+        { "id": 4, "name": "north-reeds", "type": "barrier", "x": 250, "y": 90, "width": 780, "height": 55 }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": 2,
+      "name": "EncounterZones",
+      "objects": [
+        { "id": 5, "name": "silver-reeds", "type": "encounter", "x": 120, "y": 410, "width": 280, "height": 210 },
+        { "id": 6, "name": "fog-bank", "type": "encounter", "x": 875, "y": 420, "width": 280, "height": 200 }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": 3,
+      "name": "Points",
+      "objects": [
+        { "id": 7, "name": "return-gate", "type": "portal", "x": 575, "y": 625, "width": 130, "height": 48 },
+        { "id": 8, "name": "survey-beacon", "type": "quest", "x": 600, "y": 185, "width": 80, "height": 80 }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "nextlayerid": 4,
+  "nextobjectid": 9,
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "tiledversion": "1.11.2",
+  "tileheight": 40,
+  "tilesets": [],
+  "tilewidth": 40,
+  "type": "map",
+  "version": "1.10",
+  "width": 32
+}
