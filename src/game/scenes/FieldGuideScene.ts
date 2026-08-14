@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { moves } from '../data/moves';
 import { species } from '../data/species';
 import { loadSave } from '../state/save';
-import type { ElementType } from '../types';
+import type { ConditionType, ElementType } from '../types';
 
 export class FieldGuideScene extends Phaser.Scene {
   private ids: string[] = [];
@@ -87,9 +87,12 @@ export class FieldGuideScene extends Phaser.Scene {
     root.add(this.add.text(505, 452, '技能记录', { fontSize: '19px', fontStyle: 'bold', color: '#ffe59b' }));
     data.moveIds.slice(0, 4).forEach((moveId, index) => {
       const move = moves[moveId];
+      const condition = move.condition
+        ? ` · ${Math.round(move.condition.chance * 100)}% ${this.conditionName(move.condition.type)}`
+        : '';
       root.add(this.add.text(505 + (index % 2) * 300, 490 + Math.floor(index / 2) * 62,
-        `${move.name} · ${this.elementName(move.element)} · ${move.rating}\n${move.description}`,
-        { fontSize: '14px', color: '#d5e5fb', lineSpacing: 3 }));
+        `${move.name} · ${this.elementName(move.element)} · 威力 ${move.rating} · PP ${move.pp}\n${move.description}${condition}`,
+        { fontSize: '13px', color: '#d5e5fb', lineSpacing: 3, wordWrap: { width: 280 } }));
     });
 
     const growth = data.growth;
@@ -98,6 +101,10 @@ export class FieldGuideScene extends Phaser.Scene {
       : '成长：当前未记录后续形态';
     root.add(this.add.text(505, 625, growthText, { fontSize: '15px', color: growth ? '#9fe5c8' : '#8195b5' }));
     this.content = root;
+  }
+
+  private conditionName(condition: ConditionType): string {
+    return condition === 'scorch' ? '灼热' : '迟缓';
   }
 
   private elementName(element: ElementType): string {
