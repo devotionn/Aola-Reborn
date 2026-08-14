@@ -39,7 +39,8 @@
       "objects": [
         { "id": 9, "name": "return-gate", "type": "portal", "x": 575, "y": 625, "width": 130, "height": 48 },
         { "id": 10, "name": "warden", "type": "npc", "x": 395, "y": 190, "width": 70, "height": 70 },
-        { "id": 11, "name": "resonance-stone", "type": "quest", "x": 835, "y": 175, "width": 80, "height": 80 }
+        { "id": 11, "name": "resonance-stone", "type": "quest", "x": 835, "y": 175, "width": 80, "height": 80 },
+        { "id": 12, "name": "mist-gate", "type": "portal", "x": 575, "y": 128, "width": 130, "height": 48 }
       ],
       "opacity": 1,
       "type": "objectgroup",
@@ -49,7 +50,7 @@
     }
   ],
   "nextlayerid": 4,
-  "nextobjectid": 12,
+  "nextobjectid": 13,
   "orientation": "orthogonal",
   "renderorder": "right-down",
   "tiledversion": "1.11.2",
