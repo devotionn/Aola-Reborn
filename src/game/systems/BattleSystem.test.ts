@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { elementMultiplier } from '../data/moves';
 import type { CreatureInstance } from '../types';
-import { captureChance, expToNext, grantExp, maxHpFor } from './BattleSystem';
+import {
+  captureChance,
+  ensureMovePp,
+  expToNext,
+  grantExp,
+  maxHpFor,
+  remainingPp,
+  speedFor,
+  spendMovePp,
+  tickCondition,
+} from './BattleSystem';
 
 function creature(speciesId: string, level: number): CreatureInstance {
   const value: CreatureInstance = { uid: `test-${speciesId}`, speciesId, level, exp: 0, currentHp: 1 };
   value.currentHp = maxHpFor(value);
+  ensureMovePp(value);
   return value;
 }
 
@@ -49,5 +60,43 @@ describe('element relationships', () => {
     expect(elementMultiplier('fire', 'nature')).toBe(1.5);
     expect(elementMultiplier('water', 'fire')).toBe(1.5);
     expect(elementMultiplier('neutral', 'rock')).toBe(1);
+  });
+});
+
+describe('move pp', () => {
+  it('initializes and consumes pp without going below zero', () => {
+    const partner = creature('emberMochi', 5);
+    const initial = remainingPp(partner, 'emberTap');
+
+    expect(initial).toBeGreaterThan(0);
+    expect(spendMovePp(partner, 'emberTap')).toBe(true);
+    expect(remainingPp(partner, 'emberTap')).toBe(initial - 1);
+
+    partner.movePp = { ...partner.movePp, emberTap: 0 };
+    expect(spendMovePp(partner, 'emberTap')).toBe(false);
+    expect(remainingPp(partner, 'emberTap')).toBe(0);
+  });
+});
+
+describe('battle conditions', () => {
+  it('sluggish lowers effective speed', () => {
+    const partner = creature('voltFinch', 8);
+    const normal = speedFor(partner);
+    partner.condition = { type: 'sluggish', turns: 2 };
+
+    expect(speedFor(partner)).toBeLessThan(normal);
+  });
+
+  it('scorch removes hp and expires after its final turn', () => {
+    const partner = creature('stoneShell', 8);
+    const before = partner.currentHp;
+    partner.condition = { type: 'scorch', turns: 1 };
+
+    const tick = tickCondition(partner);
+
+    expect(tick.points).toBeGreaterThan(0);
+    expect(partner.currentHp).toBeLessThan(before);
+    expect(tick.cleared).toBe(true);
+    expect(partner.condition).toBeUndefined();
   });
 });
