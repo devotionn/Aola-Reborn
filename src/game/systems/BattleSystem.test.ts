@@ -1,17 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { elementMultiplier } from '../data/moves';
-import type { CreatureInstance } from '../types';
+import type { CreatureInstance, PlayerSave } from '../types';
 import {
   captureChance,
+  chooseNpcMove,
   ensureMovePp,
   expToNext,
   grantExp,
   maxHpFor,
+  moveIdsFor,
   remainingPp,
+  replaceMove,
   speedFor,
   spendMovePp,
   tickCondition,
 } from './BattleSystem';
+import { usePpRefillOnLeader } from './FacilitySystem';
 
 function creature(speciesId: string, level: number): CreatureInstance {
   const value: CreatureInstance = { uid: `test-${speciesId}`, speciesId, level, exp: 0, currentHp: 1 };
@@ -39,6 +43,29 @@ describe('growth progression', () => {
 
     expect(partner.speciesId).toBe('solarFlare');
     expect(result.grownTo).toBeUndefined();
+  });
+
+  it('queues a level move when the four move slots are full', () => {
+    const partner = creature('solarFlare', 11);
+    partner.exp = expToNext(11) - 1;
+
+    const result = grantExp(partner, 2);
+
+    expect(partner.level).toBe(12);
+    expect(result.queuedMoves).toContain('novaPounce');
+    expect(partner.pendingMoveIds).toContain('novaPounce');
+    expect(moveIdsFor(partner)).toHaveLength(4);
+  });
+
+  it('replaces a chosen move slot and clears the learned move from the queue', () => {
+    const partner = creature('solarFlare', 12);
+    partner.pendingMoveIds = ['novaPounce'];
+    const oldMove = moveIdsFor(partner)[0];
+
+    expect(replaceMove(partner, 0, 'novaPounce')).toBe(true);
+    expect(moveIdsFor(partner)[0]).toBe('novaPounce');
+    expect(moveIdsFor(partner)).not.toContain(oldMove);
+    expect(partner.pendingMoveIds).not.toContain('novaPounce');
   });
 });
 
@@ -75,6 +102,37 @@ describe('move pp', () => {
     partner.movePp = { ...partner.movePp, emberTap: 0 };
     expect(spendMovePp(partner, 'emberTap')).toBe(false);
     expect(remainingPp(partner, 'emberTap')).toBe(0);
+  });
+
+  it('uses the fallback action when an npc has no pp left', () => {
+    const visitor = creature('stoneShell', 8);
+    moveIdsFor(visitor).forEach((moveId) => { visitor.movePp![moveId] = 0; });
+
+    expect(chooseNpcMove(visitor).id).toBe('strugglePulse');
+  });
+
+  it('restores partial pp from a player inventory refill', () => {
+    const partner = creature('emberMochi', 5);
+    const moveId = moveIdsFor(partner)[0];
+    partner.movePp![moveId] = 0;
+    const save: PlayerSave = {
+      version: 1,
+      trainerName: 'test',
+      credits: 0,
+      capsules: 0,
+      inventory: { tonics: 0, ppRefills: 1 },
+      party: [partner],
+      collection: [],
+      discoveredSpecies: ['emberMochi'],
+      world: { x: 0, y: 0 },
+      flags: {},
+    };
+
+    const result = usePpRefillOnLeader(save);
+
+    expect(result.ok).toBe(true);
+    expect(save.inventory?.ppRefills).toBe(0);
+    expect(remainingPp(partner, moveId)).toBeGreaterThan(0);
   });
 });
 
