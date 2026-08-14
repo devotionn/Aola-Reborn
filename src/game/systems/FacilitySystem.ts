@@ -1,5 +1,6 @@
 import { moves } from '../data/moves';
-import type { PlayerSave } from '../types';
+import { species } from '../data/species';
+import type { CreatureInstance, PlayerSave } from '../types';
 import { grantExp, maxHpFor, moveIdsFor, remainingPp, restorePartialMovePp } from './BattleSystem';
 
 export const CAPSULE_SERVICE_FEE = 120;
@@ -18,6 +19,10 @@ function ensureInventory(save: PlayerSave): void {
   save.inventory ??= { tonics: 0, ppRefills: 0 };
   save.inventory.tonics ??= 0;
   save.inventory.ppRefills ??= 0;
+}
+
+function findCreature(save: PlayerSave, uid: string): CreatureInstance | undefined {
+  return [...save.party, ...save.collection].find((creature) => creature.uid === uid);
 }
 
 export function requestCapsuleSupply(save: PlayerSave): ServiceResult {
@@ -43,32 +48,44 @@ export function requestPpRefillSupply(save: PlayerSave): ServiceResult {
   return { ok: true, message: '补给完成：星能补充剂 ×1。' };
 }
 
-export function useTonicOnLeader(save: PlayerSave): ServiceResult {
+export function useTonicOnCreature(save: PlayerSave, creatureUid: string): ServiceResult {
   ensureInventory(save);
-  const leader = save.party[0];
-  if (!leader) return { ok: false, message: '当前没有队首伙伴。' };
+  const target = findCreature(save, creatureUid);
+  if (!target) return { ok: false, message: '没有找到要使用道具的星灵。' };
   if (save.inventory!.tonics <= 0) return { ok: false, message: '没有可用的星辉恢复剂。' };
-  const maximum = maxHpFor(leader);
-  if (leader.currentHp >= maximum && !leader.condition) return { ok: false, message: '队首体力和状态都已经恢复。' };
+  const maximum = maxHpFor(target);
+  if (target.currentHp >= maximum && !target.condition) return { ok: false, message: `${species[target.speciesId].name} 的体力和状态都已经恢复。` };
 
   const restored = Math.max(1, Math.floor(maximum * 0.45));
-  leader.currentHp = Math.min(maximum, leader.currentHp + restored);
-  leader.condition = undefined;
+  target.currentHp = Math.min(maximum, target.currentHp + restored);
+  target.condition = undefined;
   save.inventory!.tonics -= 1;
-  return { ok: true, message: `使用星辉恢复剂，队首恢复至 ${leader.currentHp}/${maximum} HP，并清除异常状态。` };
+  return { ok: true, message: `对 ${species[target.speciesId].name} 使用星辉恢复剂：HP ${target.currentHp}/${maximum}，异常状态已清除。` };
+}
+
+export function useTonicOnLeader(save: PlayerSave): ServiceResult {
+  const leader = save.party[0];
+  if (!leader) return { ok: false, message: '当前没有队首伙伴。' };
+  return useTonicOnCreature(save, leader.uid);
+}
+
+export function usePpRefillOnCreature(save: PlayerSave, creatureUid: string): ServiceResult {
+  ensureInventory(save);
+  const target = findCreature(save, creatureUid);
+  if (!target) return { ok: false, message: '没有找到要补充 PP 的星灵。' };
+  if (save.inventory!.ppRefills <= 0) return { ok: false, message: '没有可用的星能补充剂。' };
+  const depleted = moveIdsFor(target).some((moveId) => remainingPp(target, moveId) < moves[moveId].pp);
+  if (!depleted) return { ok: false, message: `${species[target.speciesId].name} 的技能 PP 都是满状态。` };
+
+  const restored = restorePartialMovePp(target, 0.5);
+  save.inventory!.ppRefills -= 1;
+  return { ok: true, message: `对 ${species[target.speciesId].name} 使用星能补充剂，共恢复 ${restored} 点技能 PP。` };
 }
 
 export function usePpRefillOnLeader(save: PlayerSave): ServiceResult {
-  ensureInventory(save);
   const leader = save.party[0];
   if (!leader) return { ok: false, message: '当前没有队首伙伴。' };
-  if (save.inventory!.ppRefills <= 0) return { ok: false, message: '没有可用的星能补充剂。' };
-  const depleted = moveIdsFor(leader).some((moveId) => remainingPp(leader, moveId) < moves[moveId].pp);
-  if (!depleted) return { ok: false, message: '队首所有技能 PP 都是满状态。' };
-
-  const restored = restorePartialMovePp(leader, 0.5);
-  save.inventory!.ppRefills -= 1;
-  return { ok: true, message: `使用星能补充剂，共恢复 ${restored} 点技能 PP。` };
+  return usePpRefillOnCreature(save, leader.uid);
 }
 
 export function runTrainingSession(save: PlayerSave): ServiceResult {
