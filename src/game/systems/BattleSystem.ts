@@ -59,6 +59,17 @@ export function spendMovePp(creature: CreatureInstance, moveId: string): boolean
   return true;
 }
 
+export function allMovePpDepleted(creature: CreatureInstance): boolean {
+  return moveIdsFor(creature).every((moveId) => remainingPp(creature, moveId) <= 0);
+}
+
+export function choosePlayerMove(creature: CreatureInstance, slot: number): Move | null {
+  if (allMovePpDepleted(creature)) return moves.strugglePulse;
+  const moveId = moveIdsFor(creature)[slot];
+  if (!moveId || !spendMovePp(creature, moveId)) return null;
+  return moves[moveId];
+}
+
 export function restoreMovePp(creature: CreatureInstance): void {
   creature.movePp = {};
   ensureMovePp(creature);
