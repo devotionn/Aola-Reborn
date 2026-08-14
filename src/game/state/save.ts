@@ -1,6 +1,6 @@
 import { species } from '../data/species';
 import type { CreatureInstance, PlayerSave } from '../types';
-import { ensureMovePp, maxHpFor } from '../systems/BattleSystem';
+import { maxHpFor, normalizeCreatureMoves } from '../systems/BattleSystem';
 
 const SAVE_KEY = 'aola-reborn.save.v1';
 
@@ -9,9 +9,17 @@ function uid(): string {
 }
 
 export function createCreature(speciesId: string, level: number): CreatureInstance {
-  const creature: CreatureInstance = { uid: uid(), speciesId, level, exp: 0, currentHp: 1 };
+  const creature: CreatureInstance = {
+    uid: uid(),
+    speciesId,
+    level,
+    exp: 0,
+    currentHp: 1,
+    moveIds: species[speciesId].moveIds.slice(0, 4),
+    pendingMoveIds: [],
+  };
   creature.currentHp = maxHpFor(creature);
-  ensureMovePp(creature);
+  normalizeCreatureMoves(creature);
   return creature;
 }
 
@@ -23,7 +31,7 @@ export function createFreshSave(starterId: string): PlayerSave {
     trainerName: '星际训练师',
     credits: 800,
     capsules: 8,
-    inventory: { tonics: 1 },
+    inventory: { tonics: 1, ppRefills: 1 },
     party: [starter],
     collection: [],
     discoveredSpecies: [starterId],
@@ -32,9 +40,11 @@ export function createFreshSave(starterId: string): PlayerSave {
 }
 
 function normalizeSave(save: PlayerSave): PlayerSave {
-  save.inventory ??= { tonics: 0 };
+  save.inventory ??= { tonics: 0, ppRefills: 0 };
+  save.inventory.tonics ??= 0;
+  save.inventory.ppRefills ??= 0;
   save.flags ??= {};
-  [...save.party, ...save.collection].forEach(ensureMovePp);
+  [...save.party, ...save.collection].forEach(normalizeCreatureMoves);
   return save;
 }
 
