@@ -12,6 +12,7 @@ export interface TurnOutcome {
 export interface GrowthResult {
   levelsGained: number;
   grownTo?: string;
+  queuedMoves: string[];
 }
 
 export interface ConditionTick {
@@ -30,10 +31,18 @@ export function speedFor(creature: CreatureInstance): number {
   return creature.condition?.type === 'sluggish' ? Math.max(1, Math.floor(base * 0.75)) : base;
 }
 
+export function moveIdsFor(creature: CreatureInstance): string[] {
+  const fallback = species[creature.speciesId].moveIds.slice(0, 4);
+  const normalized = (creature.moveIds ?? fallback).filter((id) => Boolean(moves[id])).slice(0, 4);
+  creature.moveIds = normalized.length > 0 ? normalized : fallback;
+  return creature.moveIds;
+}
+
 export function ensureMovePp(creature: CreatureInstance): Record<string, number> {
   creature.movePp ??= {};
-  species[creature.speciesId].moveIds.forEach((moveId) => {
+  moveIdsFor(creature).forEach((moveId) => {
     if (creature.movePp?.[moveId] === undefined) creature.movePp![moveId] = moves[moveId].pp;
+    creature.movePp![moveId] = Math.min(creature.movePp![moveId], moves[moveId].pp);
   });
   return creature.movePp;
 }
@@ -53,6 +62,62 @@ export function spendMovePp(creature: CreatureInstance, moveId: string): boolean
 export function restoreMovePp(creature: CreatureInstance): void {
   creature.movePp = {};
   ensureMovePp(creature);
+}
+
+export function restorePartialMovePp(creature: CreatureInstance, ratio = 0.5): number {
+  const pool = ensureMovePp(creature);
+  let restored = 0;
+  moveIdsFor(creature).forEach((moveId) => {
+    const maximum = moves[moveId].pp;
+    const current = pool[moveId] ?? 0;
+    const target = Math.min(maximum, current + Math.max(1, Math.ceil(maximum * ratio)));
+    restored += target - current;
+    pool[moveId] = target;
+  });
+  return restored;
+}
+
+export function replaceMove(creature: CreatureInstance, slot: number, newMoveId: string): boolean {
+  if (!moves[newMoveId] || slot < 0 || slot > 3) return false;
+  const current = moveIdsFor(creature);
+  if (current.includes(newMoveId)) return false;
+  const oldMoveId = current[slot];
+  if (!oldMoveId) return false;
+  current[slot] = newMoveId;
+  creature.moveIds = current;
+  creature.movePp ??= {};
+  delete creature.movePp[oldMoveId];
+  creature.movePp[newMoveId] = moves[newMoveId].pp;
+  creature.pendingMoveIds = (creature.pendingMoveIds ?? []).filter((id) => id !== newMoveId);
+  return true;
+}
+
+function queueLearnableMoves(creature: CreatureInstance): string[] {
+  const rules = species[creature.speciesId].learnset ?? [];
+  const known = new Set(moveIdsFor(creature));
+  creature.pendingMoveIds ??= [];
+  const queued: string[] = [];
+
+  rules.forEach((rule) => {
+    if (rule.level > creature.level || known.has(rule.moveId) || creature.pendingMoveIds?.includes(rule.moveId) || !moves[rule.moveId]) return;
+    if (creature.moveIds!.length < 4) {
+      creature.moveIds!.push(rule.moveId);
+      creature.movePp ??= {};
+      creature.movePp[rule.moveId] = moves[rule.moveId].pp;
+      known.add(rule.moveId);
+    } else {
+      creature.pendingMoveIds!.push(rule.moveId);
+      queued.push(rule.moveId);
+    }
+  });
+  return queued;
+}
+
+export function normalizeCreatureMoves(creature: CreatureInstance): void {
+  moveIdsFor(creature);
+  creature.pendingMoveIds ??= [];
+  ensureMovePp(creature);
+  queueLearnableMoves(creature);
 }
 
 export function resolveTurn(left: CreatureInstance, right: CreatureInstance, move: Move): TurnOutcome {
@@ -98,11 +163,11 @@ export function tickCondition(creature: CreatureInstance): ConditionTick {
 }
 
 export function chooseNpcMove(creature: CreatureInstance): Move {
-  const ids = species[creature.speciesId].moveIds;
+  const ids = moveIdsFor(creature);
   const available = ids.filter((id) => remainingPp(creature, id) > 0);
-  const pool = available.length > 0 ? available : ids;
-  const id = pool[Math.floor(Math.random() * pool.length)];
-  if (available.length > 0) spendMovePp(creature, id);
+  if (available.length === 0) return moves.strugglePulse;
+  const id = available[Math.floor(Math.random() * available.length)];
+  spendMovePp(creature, id);
   return moves[id];
 }
 
@@ -115,6 +180,8 @@ export function applyGrowth(creature: CreatureInstance): string | undefined {
   if (!rule || creature.level < rule.level || !species[rule.targetSpeciesId]) return undefined;
   creature.speciesId = rule.targetSpeciesId;
   creature.currentHp = maxHpFor(creature);
+  creature.moveIds = species[rule.targetSpeciesId].moveIds.slice(0, 4);
+  creature.pendingMoveIds = [];
   creature.movePp = {};
   ensureMovePp(creature);
   return rule.targetSpeciesId;
@@ -123,6 +190,7 @@ export function applyGrowth(creature: CreatureInstance): string | undefined {
 export function grantExp(creature: CreatureInstance, amount: number): GrowthResult {
   let levelsGained = 0;
   let grownTo: string | undefined;
+  const queuedMoves: string[] = [];
   creature.exp += amount;
   while (creature.exp >= expToNext(creature.level)) {
     creature.exp -= expToNext(creature.level);
@@ -130,9 +198,11 @@ export function grantExp(creature: CreatureInstance, amount: number): GrowthResu
     levelsGained += 1;
     grownTo = applyGrowth(creature) ?? grownTo;
     creature.currentHp = maxHpFor(creature);
+    queuedMoves.push(...queueLearnableMoves(creature));
   }
   grownTo = applyGrowth(creature) ?? grownTo;
-  return { levelsGained, grownTo };
+  queuedMoves.push(...queueLearnableMoves(creature));
+  return { levelsGained, grownTo, queuedMoves: [...new Set(queuedMoves)] };
 }
 
 export function captureChance(creature: CreatureInstance): number {
