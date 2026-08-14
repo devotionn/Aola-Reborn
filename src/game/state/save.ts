@@ -1,6 +1,6 @@
 import { species } from '../data/species';
 import type { CreatureInstance, PlayerSave } from '../types';
-import { maxHpFor } from '../systems/BattleSystem';
+import { ensureMovePp, maxHpFor } from '../systems/BattleSystem';
 
 const SAVE_KEY = 'aola-reborn.save.v1';
 
@@ -11,6 +11,7 @@ function uid(): string {
 export function createCreature(speciesId: string, level: number): CreatureInstance {
   const creature: CreatureInstance = { uid: uid(), speciesId, level, exp: 0, currentHp: 1 };
   creature.currentHp = maxHpFor(creature);
+  ensureMovePp(creature);
   return creature;
 }
 
@@ -33,6 +34,7 @@ export function createFreshSave(starterId: string): PlayerSave {
 function normalizeSave(save: PlayerSave): PlayerSave {
   save.inventory ??= { tonics: 0 };
   save.flags ??= {};
+  [...save.party, ...save.collection].forEach(ensureMovePp);
   return save;
 }
 
