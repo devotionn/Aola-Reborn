@@ -38,6 +38,8 @@ export class WorldScene extends Phaser.Scene {
     keyboard.on('keydown-P', () => this.toggleCollection());
     keyboard.on('keydown-G', () => this.openGuide());
     keyboard.on('keydown-T', () => this.openRoster());
+    keyboard.on('keydown-B', () => this.openBag());
+    keyboard.on('keydown-L', () => this.openMoveLearn());
     keyboard.on('keydown-ESC', () => this.closeOverlay());
     keyboard.on('keydown-ONE', () => this.makeLeader(0));
     keyboard.on('keydown-TWO', () => this.makeLeader(1));
@@ -48,7 +50,7 @@ export class WorldScene extends Phaser.Scene {
     this.hudTitle = this.add.text(42, 30, '', { fontSize: '19px', fontStyle: 'bold', color: '#fff' }).setDepth(21);
     this.hudDetail = this.add.text(42, 57, '', { fontSize: '14px', color: '#acd9ff' }).setDepth(21);
     this.refreshHud();
-    this.statusText = this.add.text(640, 674, 'WASD 移动 · E 交互 · G 手册 · T 编组 · P 快览 · 星门探索', {
+    this.statusText = this.add.text(640, 674, 'WASD · E 交互 · B 背包 · L 学技能 · G 手册 · T 编组 · P 快览', {
       fontSize: '15px', color: '#eef8ff', backgroundColor: '#0d1738cc', padding: { x: 18, y: 10 },
     }).setOrigin(0.5).setDepth(25);
   }
@@ -125,11 +127,28 @@ export class WorldScene extends Phaser.Scene {
     this.scene.start('facility');
   }
 
+  private openBag(): void {
+    if (this.overlay) return;
+    writeSave(this.save);
+    this.scene.start('bag', { returnScene: 'world' });
+  }
+
+  private openMoveLearn(): void {
+    if (this.overlay) return;
+    const leader = this.save.party[0];
+    if ((leader.pendingMoveIds?.length ?? 0) === 0) {
+      this.statusText.setText('当前队首没有等待学习的新技能。升级或训练后再来看看。');
+      return;
+    }
+    writeSave(this.save);
+    this.scene.start('moveLearn', { creatureUid: leader.uid, returnScene: 'world' });
+  }
+
   private restoreParty(): void {
     this.save.party.forEach(restoreCreature);
     writeSave(this.save);
     this.refreshHud();
-    this.statusText.setText('恢复完成！队伍成员的 HP 已全部恢复。');
+    this.statusText.setText('恢复完成！队伍成员 HP、异常状态与技能 PP 已全部恢复。');
   }
 
   private claimResearchKit(): void {
@@ -201,7 +220,8 @@ export class WorldScene extends Phaser.Scene {
     const leader = this.save.party[0];
     const data = species[leader.speciesId];
     this.hudTitle.setText(`${data.symbol} ${data.name}  Lv.${leader.level}`);
-    this.hudDetail.setText(`HP ${leader.currentHp}/${maxHpFor(leader)} · 胶囊 ${this.save.capsules} · 星币 ${this.save.credits}`);
+    const pending = leader.pendingMoveIds?.length ? ` · 待学技能 ${leader.pendingMoveIds.length}` : '';
+    this.hudDetail.setText(`HP ${leader.currentHp}/${maxHpFor(leader)} · 胶囊 ${this.save.capsules} · 星币 ${this.save.credits}${pending}`);
   }
 
   private inGrass(): boolean {
