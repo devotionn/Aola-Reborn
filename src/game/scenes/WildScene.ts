@@ -1,9 +1,14 @@
 import Phaser from 'phaser';
+import fieldMapJson from '../maps/starfall-field.json';
 import { species, wildSpeciesIds } from '../data/species';
 import { loadSave, writeSave } from '../state/save';
 import { maxHpFor } from '../systems/BattleSystem';
+import { useTonicOnLeader } from '../systems/FacilitySystem';
+import { collidesWithAny, containsPoint, findObject, objectsInLayer, type ObjectMapData } from '../systems/ObjectMapSystem';
 import type { BattleRequest, PlayerSave } from '../types';
 import { DialogueBox } from '../ui/DialogueBox';
+
+const fieldMap = fieldMapJson as ObjectMapData;
 
 export class WildScene extends Phaser.Scene {
   private save!: PlayerSave;
@@ -15,6 +20,8 @@ export class WildScene extends Phaser.Scene {
   private questText!: Phaser.GameObjects.Text;
   private dialogue?: DialogueBox;
   private encounterCooldown = 0;
+  private readonly barriers = objectsInLayer(fieldMap, 'Barriers');
+  private readonly encounterZones = objectsInLayer(fieldMap, 'EncounterZones');
 
   constructor() { super('wild'); }
 
@@ -26,8 +33,8 @@ export class WildScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#7fae92');
     this.drawMap();
-    this.player = this.add.circle(640, 610, 18, 0xffef9b).setStrokeStyle(4, 0x2c4262).setDepth(20);
-    this.playerLabel = this.add.text(640, 576, 'YOU', { fontSize: '11px', fontStyle: 'bold', color: '#17243d' }).setOrigin(0.5).setDepth(20);
+    this.player = this.add.circle(640, 590, 18, 0xffef9b).setStrokeStyle(4, 0x2c4262).setDepth(30);
+    this.playerLabel = this.add.text(640, 556, 'YOU', { fontSize: '11px', fontStyle: 'bold', color: '#17243d' }).setOrigin(0.5).setDepth(30);
 
     const keyboard = this.input.keyboard;
     if (!keyboard) throw new Error('Keyboard input unavailable');
@@ -35,15 +42,16 @@ export class WildScene extends Phaser.Scene {
     this.cursors = keyboard.createCursorKeys();
     keyboard.addCapture(['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
     keyboard.on('keydown-E', () => this.interact());
+    keyboard.on('keydown-H', () => this.useTonic());
     keyboard.on('keydown-SPACE', () => this.dialogue?.next());
     keyboard.on('keydown-ESC', () => this.returnToHub());
 
-    this.statusText = this.add.text(640, 682, 'WASD 移动 · E 交互 · 北侧远星门前往第二调查区 · ESC 返回星港', {
+    this.statusText = this.add.text(640, 682, 'WASD 移动 · E 交互 · H 恢复剂 · Tiled 碰撞/遭遇 · ESC 返回星港', {
       fontSize: '14px', color: '#eef8ff', backgroundColor: '#0d1738dd', padding: { x: 18, y: 9 },
-    }).setOrigin(0.5).setDepth(40);
-    this.questText = this.add.text(42, 34, '', {
+    }).setOrigin(0.5).setDepth(50);
+    this.questText = this.add.text(34, 30, '', {
       fontSize: '15px', fontStyle: 'bold', color: '#ffffff', backgroundColor: '#0d1738cc', padding: { x: 14, y: 10 },
-    }).setDepth(40);
+    }).setDepth(50);
     this.refreshQuest();
 
     if (this.save.flags.wildGuardianDefeated && !this.save.flags.wildQuestRewarded) {
@@ -64,61 +72,100 @@ export class WildScene extends Phaser.Scene {
     if (this.keys.down.isDown || this.cursors.down.isDown) dy += speed;
     if (dx === 0 && dy === 0) return;
 
-    this.player.x = Phaser.Math.Clamp(this.player.x + dx, 35, 1245);
-    this.player.y = Phaser.Math.Clamp(this.player.y + dy, 95, 650);
-    this.playerLabel.setPosition(this.player.x, this.player.y - 34);
-    this.encounterCooldown -= delta;
+    const nextX = Phaser.Math.Clamp(this.player.x + dx, 25, 1255);
+    const nextY = Phaser.Math.Clamp(this.player.y + dy, 90, 655);
+    if (!collidesWithAny(this.barriers, nextX, nextY, 18)) {
+      this.player.setPosition(nextX, nextY);
+      this.playerLabel.setPosition(nextX, nextY - 34);
+    }
 
-    if (this.inGrass() && this.encounterCooldown <= 0 && Math.random() < 0.018) this.startWildEncounter();
-    if (this.player.y > 635 && this.player.x > 560 && this.player.x < 720) this.returnToHub();
+    this.encounterCooldown -= delta;
+    if (this.inEncounterZone() && this.encounterCooldown <= 0 && Math.random() < 0.018) this.startWildEncounter();
   }
 
   private drawMap(): void {
-    this.add.rectangle(640, 370, 1280, 700, 0x96c7a0);
-    this.add.rectangle(640, 430, 210, 520, 0xdcc996).setStrokeStyle(3, 0xc2ad77);
-    this.add.rectangle(245, 390, 390, 300, 0x5d9f66, 0.9).setStrokeStyle(4, 0x3d7748);
-    this.add.rectangle(1035, 430, 360, 250, 0x5d9f66, 0.9).setStrokeStyle(4, 0x3d7748);
-    this.add.rectangle(640, 145, 520, 150, 0x7f9e78, 0.8).setStrokeStyle(4, 0x526b55);
+    this.add.rectangle(640, 390, 1280, 660, 0x96c7a0);
+    this.add.text(640, 52, '星落原野', { fontSize: '34px', fontStyle: 'bold', color: '#233a32' }).setOrigin(0.5);
+    this.add.text(640, 86, 'STARFALL FIELD · 第一调查区 · Tiled Object Map', { fontSize: '12px', color: '#3d5a50' }).setOrigin(0.5);
 
-    this.add.text(640, 70, '星落原野', { fontSize: '34px', fontStyle: 'bold', color: '#233a32' }).setOrigin(0.5);
-    this.add.text(640, 108, 'STARFALL FIELD · 第一调查区', { fontSize: '13px', color: '#3d5a50' }).setOrigin(0.5);
+    this.barriers.forEach((object) => {
+      const isWater = object.type === 'water';
+      const color = isWater ? 0x6ba5b6 : object.name.includes('rocks') ? 0x6d7b70 : 0x56785b;
+      this.add.rectangle(object.x + object.width / 2, object.y + object.height / 2, object.width, object.height, color, 0.9)
+        .setStrokeStyle(2, isWater ? 0xbcecf2 : 0x879886);
+    });
 
-    this.add.rectangle(640, 170, 178, 56, this.save.flags?.wildQuestRewarded ? 0x344f7d : 0x626c6b, 0.96)
-      .setStrokeStyle(3, this.save.flags?.wildQuestRewarded ? 0xc1e1ff : 0x9da7a5);
-    this.add.text(640, 162, '远星门', { fontSize: '16px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
-    this.add.text(640, 184, this.save.flags?.wildQuestRewarded ? '烬苔林地 · E' : '完成调查后解锁', { fontSize: '11px', color: '#dceaff' }).setOrigin(0.5);
+    this.encounterZones.forEach((object) => {
+      this.add.rectangle(object.x + object.width / 2, object.y + object.height / 2, object.width, object.height, 0x5d9f66, 0.78)
+        .setStrokeStyle(3, 0x3d7748);
+      const label = object.name === 'glow-grass-slope' ? '萤草坡\n随机遭遇区' : '碎星草甸\n随机遭遇区';
+      this.add.text(object.x + object.width / 2, object.y + object.height / 2, label, {
+        fontSize: '18px', fontStyle: 'bold', color: '#173b24', align: 'center',
+      }).setOrigin(0.5);
+    });
 
-    this.add.circle(245, 226, 34, 0x335d79).setStrokeStyle(3, 0xc8ecff);
-    this.add.text(245, 226, '岚', { fontSize: '22px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
-    this.add.text(245, 274, '研究员 · 岚音', { fontSize: '14px', fontStyle: 'bold', color: '#17354b', backgroundColor: '#d9f2ffcc', padding: { x: 8, y: 4 } }).setOrigin(0.5);
+    const researcher = findObject(fieldMap, 'Points', 'researcher');
+    if (researcher) {
+      const x = researcher.x + researcher.width / 2;
+      const y = researcher.y + researcher.height / 2;
+      this.add.circle(x, y, 34, 0x335d79).setStrokeStyle(3, 0xc8ecff);
+      this.add.text(x, y, '岚', { fontSize: '22px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
+      this.add.text(x, y + 52, '研究员 · 岚音', { fontSize: '14px', fontStyle: 'bold', color: '#17354b', backgroundColor: '#d9f2ffcc', padding: { x: 8, y: 4 } }).setOrigin(0.5);
+    }
 
-    this.add.circle(1035, 182, 64, 0x587a93, 0.75).setStrokeStyle(5, 0xb5ddff);
-    this.add.circle(1035, 182, 36, 0xd7e8ff, 0.38).setStrokeStyle(2, 0xffffff);
-    this.add.text(1035, 182, '曜', { fontSize: '30px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
-    this.add.text(1035, 266, '古星祭坛 · E 调查', { fontSize: '14px', fontStyle: 'bold', color: '#ffffff', backgroundColor: '#304b68cc', padding: { x: 10, y: 5 } }).setOrigin(0.5);
+    const altar = findObject(fieldMap, 'Points', 'ancient-altar');
+    if (altar) {
+      const x = altar.x + altar.width / 2;
+      const y = altar.y + altar.height / 2;
+      this.add.circle(x, y, 52, 0x587a93, 0.78).setStrokeStyle(5, 0xb5ddff);
+      this.add.text(x, y, '曜', { fontSize: '30px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
+      this.add.text(x, y + 70, '古星祭坛 · E 调查', { fontSize: '13px', fontStyle: 'bold', color: '#ffffff', backgroundColor: '#304b68cc', padding: { x: 10, y: 5 } }).setOrigin(0.5);
+    }
 
-    this.add.rectangle(640, 654, 170, 44, 0x31568a, 0.96).setStrokeStyle(2, 0xa8d7ff);
-    this.add.text(640, 654, '返回星港', { fontSize: '15px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
+    const homeGate = findObject(fieldMap, 'Points', 'return-gate');
+    if (homeGate) {
+      this.add.rectangle(homeGate.x + homeGate.width / 2, homeGate.y + homeGate.height / 2, homeGate.width, homeGate.height, 0x31568a, 0.96).setStrokeStyle(2, 0xa8d7ff);
+      this.add.text(homeGate.x + homeGate.width / 2, homeGate.y + homeGate.height / 2, '返回星港', { fontSize: '14px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
+    }
 
-    this.add.text(245, 390, '萤草坡\n随机遭遇区', { fontSize: '18px', fontStyle: 'bold', color: '#173b24', align: 'center' }).setOrigin(0.5);
-    this.add.text(1035, 430, '碎星草甸\n随机遭遇区', { fontSize: '18px', fontStyle: 'bold', color: '#173b24', align: 'center' }).setOrigin(0.5);
+    const farGate = findObject(fieldMap, 'Points', 'far-gate');
+    if (farGate) {
+      const unlocked = Boolean(this.save.flags?.wildQuestRewarded);
+      this.add.rectangle(farGate.x + farGate.width / 2, farGate.y + farGate.height / 2, farGate.width, farGate.height, unlocked ? 0x66558d : 0x565d69, 0.96)
+        .setStrokeStyle(2, unlocked ? 0xd8c8ff : 0x8b919c);
+      this.add.text(farGate.x + farGate.width / 2, farGate.y + farGate.height / 2, unlocked ? '远星门 · 烬苔林地' : '远星门 · 尚未校准', {
+        fontSize: '13px', fontStyle: 'bold', color: unlocked ? '#f6efff' : '#c5c8cf',
+      }).setOrigin(0.5);
+    }
   }
 
   private interact(): void {
     if (this.dialogue) { this.dialogue.next(); return; }
-    if (this.near(640, 170, 105)) {
+    const researcher = findObject(fieldMap, 'Points', 'researcher');
+    const altar = findObject(fieldMap, 'Points', 'ancient-altar');
+    const homeGate = findObject(fieldMap, 'Points', 'return-gate');
+    const farGate = findObject(fieldMap, 'Points', 'far-gate');
+
+    if (researcher && containsPoint(researcher, this.player.x, this.player.y, 65)) { this.talkResearcher(); return; }
+    if (altar && containsPoint(altar, this.player.x, this.player.y, 65)) { this.inspectAltar(); return; }
+    if (homeGate && containsPoint(homeGate, this.player.x, this.player.y, 35)) { this.returnToHub(); return; }
+    if (farGate && containsPoint(farGate, this.player.x, this.player.y, 45)) {
       if (!this.save.flags?.wildQuestRewarded) {
-        this.statusText.setText('远星门尚未校准。先完成岚音的第一调查任务。');
+        this.statusText.setText('远星门还没有完成校准。先完成星落原野的调查。');
         return;
       }
       writeSave(this.save);
       this.scene.start('grove');
       return;
     }
-    if (this.near(245, 226, 110)) { this.talkResearcher(); return; }
-    if (this.near(1035, 182, 125)) { this.inspectAltar(); return; }
-    if (this.near(640, 654, 90)) { this.returnToHub(); return; }
     this.statusText.setText('风吹过草地，附近暂时没有可以交互的目标。');
+  }
+
+  private useTonic(): void {
+    if (this.dialogue) return;
+    const result = useTonicOnLeader(this.save);
+    if (result.ok) writeSave(this.save);
+    this.statusText.setText(result.message);
   }
 
   private talkResearcher(): void {
@@ -139,19 +186,19 @@ export class WildScene extends Phaser.Scene {
     if (flags.wildGuardianDefeated && !flags.wildQuestRewarded) {
       this.openDialogue('研究员 · 岚音', [
         '脉冲读数恢复正常了。你没有破坏祭坛，曜角鹿也重新平静了下来。',
-        '这是本次调查的报酬。研究站以后会把更远星区的调查任务交给你。',
+        '这是本次调查的报酬。远星门已经可以校准到下一调查区。',
       ], () => {
         flags.wildQuestRewarded = true;
         this.save.credits += 360;
         this.save.capsules += 3;
         writeSave(this.save);
         this.refreshQuest();
-        this.statusText.setText('调查完成！获得星币 ×360、捕捉胶囊 ×3。北侧远星门已经解锁。');
+        this.scene.restart();
       });
       return;
     }
     if (flags.wildQuestRewarded) {
-      this.openDialogue('研究员 · 岚音', ['第一调查区已经稳定。北侧远星门已校准，可以前往第二调查区「烬苔林地」。']);
+      this.openDialogue('研究员 · 岚音', ['第一调查区已经稳定。北侧远星门现在可以前往烬苔林地。']);
       return;
     }
     this.openDialogue('研究员 · 岚音', ['曜角鹿就在东北侧古星祭坛。靠近祭坛按 E 调查，记得保持队首状态。']);
@@ -183,9 +230,16 @@ export class WildScene extends Phaser.Scene {
         boss: true,
         rewardCredits: 180,
         victoryFlag: 'wildGuardianDefeated',
+        battleTitle: '星落原野 · 古星祭坛',
+        battleSubtitle: '守护星灵 · 曜角鹿',
+        captureBlockedMessage: '曜角鹿正在守护祭坛，现在无法与它建立捕捉连接。',
       };
       this.scene.start('battle', request);
     });
+  }
+
+  private inEncounterZone(): boolean {
+    return this.encounterZones.some((zone) => containsPoint(zone, this.player.x, this.player.y));
   }
 
   private startWildEncounter(): void {
@@ -218,18 +272,8 @@ export class WildScene extends Phaser.Scene {
     let text = '调查任务：与研究员岚音交谈';
     if (flags.wildQuestAccepted) text = '调查任务：前往古星祭坛';
     if (flags.wildGuardianDefeated && !flags.wildQuestRewarded) text = '调查任务：向岚音汇报';
-    if (flags.wildQuestRewarded) text = '调查任务：第一调查区已完成 ✓ · 北侧远星门已开启';
+    if (flags.wildQuestRewarded) text = '第一调查完成 ✓ · 北侧远星门已解锁';
     this.questText.setText(text);
-  }
-
-  private inGrass(): boolean {
-    const left = this.player.x > 50 && this.player.x < 440 && this.player.y > 255 && this.player.y < 545;
-    const right = this.player.x > 850 && this.player.x < 1220 && this.player.y > 305 && this.player.y < 555;
-    return left || right;
-  }
-
-  private near(x: number, y: number, radius: number): boolean {
-    return Phaser.Math.Distance.Between(this.player.x, this.player.y, x, y) <= radius;
   }
 
   private returnToHub(): void {
