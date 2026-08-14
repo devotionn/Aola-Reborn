@@ -1,5 +1,6 @@
 export type ElementType = 'fire' | 'water' | 'nature' | 'electric' | 'rock' | 'neutral';
 export type SceneKey = 'world' | 'wild' | 'grove';
+export type ConditionType = 'scorch' | 'sluggish';
 
 export interface BaseStats {
   hp: number;
@@ -25,13 +26,26 @@ export interface Species {
   growth?: GrowthRule;
 }
 
+export interface MoveCondition {
+  type: ConditionType;
+  chance: number;
+  turns: number;
+}
+
 export interface Move {
   id: string;
   name: string;
   element: ElementType;
   rating: number;
   accuracy: number;
+  pp: number;
   description: string;
+  condition?: MoveCondition;
+}
+
+export interface CreatureCondition {
+  type: ConditionType;
+  turns: number;
 }
 
 export interface CreatureInstance {
@@ -40,6 +54,8 @@ export interface CreatureInstance {
   level: number;
   exp: number;
   currentHp: number;
+  movePp?: Record<string, number>;
+  condition?: CreatureCondition;
 }
 
 export interface PlayerInventory {
@@ -66,4 +82,7 @@ export interface BattleRequest {
   boss?: boolean;
   rewardCredits?: number;
   victoryFlag?: string;
+  battleTitle?: string;
+  battleSubtitle?: string;
+  captureBlockedMessage?: string;
 }
