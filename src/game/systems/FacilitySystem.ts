@@ -33,12 +33,13 @@ export function useTonicOnLeader(save: PlayerSave): ServiceResult {
   if (!leader) return { ok: false, message: '当前没有队首伙伴。' };
   if (save.inventory.tonics <= 0) return { ok: false, message: '没有可用的星辉恢复剂。' };
   const maximum = maxHpFor(leader);
-  if (leader.currentHp >= maximum) return { ok: false, message: '队首体力已经是满状态。' };
+  if (leader.currentHp >= maximum && !leader.condition) return { ok: false, message: '队首体力和状态都已经恢复。' };
 
   const restored = Math.max(1, Math.floor(maximum * 0.45));
   leader.currentHp = Math.min(maximum, leader.currentHp + restored);
+  leader.condition = undefined;
   save.inventory.tonics -= 1;
-  return { ok: true, message: `使用星辉恢复剂，队首恢复至 ${leader.currentHp}/${maximum} HP。` };
+  return { ok: true, message: `使用星辉恢复剂，队首恢复至 ${leader.currentHp}/${maximum} HP，并清除异常状态。` };
 }
 
 export function runTrainingSession(save: PlayerSave): ServiceResult {
