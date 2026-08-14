@@ -9,6 +9,7 @@ import {
   expToNext,
   grantExp,
   maxHpFor,
+  moveIdsFor,
   remainingPp,
   spendMovePp,
   speedFor,
@@ -55,9 +56,7 @@ export class BattleScene extends Phaser.Scene {
 
     if (request.boss || request.battleTitle) {
       this.add.text(640, 26, request.battleTitle ?? '特殊挑战', { fontSize: '18px', fontStyle: 'bold', color: '#ffe59b' }).setOrigin(0.5);
-      if (request.battleSubtitle) {
-        this.add.text(640, 49, request.battleSubtitle, { fontSize: '12px', color: '#cfd8ee' }).setOrigin(0.5);
-      }
+      if (request.battleSubtitle) this.add.text(640, 49, request.battleSubtitle, { fontSize: '12px', color: '#cfd8ee' }).setOrigin(0.5);
     }
 
     this.drawCreature(300, 325, this.partner, true);
@@ -149,10 +148,10 @@ export class BattleScene extends Phaser.Scene {
 
   private playRound(index: number): void {
     if (this.busy || this.switchOverlay || this.partner.currentHp <= 0 || this.visitor.currentHp <= 0) return;
-    const moveId = species[this.partner.speciesId].moveIds[index];
+    const moveId = moveIdsFor(this.partner)[index];
     if (!moveId) return;
     if (!spendMovePp(this.partner, moveId)) {
-      this.setLog(`${moves[moveId].name} 的 PP 已耗尽，换一个技能或伙伴吧。`);
+      this.setLog(`${moves[moveId].name} 的 PP 已耗尽，换一个技能、伙伴，或使用星能补充剂。`);
       this.refreshPartnerPresentation();
       return;
     }
@@ -349,8 +348,13 @@ export class BattleScene extends Phaser.Scene {
     this.refreshMeters();
     const levelNote = result.levelsGained ? ` 升到 Lv.${this.partner.level}！` : '';
     const growthNote = result.grownTo ? ` 成长为 ${species[result.grownTo].name}！` : '';
+    const moveNote = result.queuedMoves.length > 0 ? ` 解锁新技能 ${result.queuedMoves.map((id) => moves[id].name).join('、')}！` : '';
     const title = this.request.boss ? '特殊挑战完成！' : '对局胜利！';
-    this.setLog(`${title}获得 ${exp} EXP 与 ${credits} 星币。${levelNote}${growthNote}`);
+    this.setLog(`${title}获得 ${exp} EXP 与 ${credits} 星币。${levelNote}${growthNote}${moveNote}`);
+    if (result.queuedMoves.length > 0) {
+      this.time.delayedCall(1450, () => this.scene.start('moveLearn', { creatureUid: this.partner.uid, returnScene: this.returnScene() }));
+      return;
+    }
     this.time.delayedCall(1350, () => this.finishScene());
   }
 
@@ -380,6 +384,7 @@ export class BattleScene extends Phaser.Scene {
   private returnLabel(): string {
     if (this.returnScene() === 'wild') return '星落原野';
     if (this.returnScene() === 'grove') return '烬苔林地';
+    if (this.returnScene() === 'mist') return '雾镜湿地';
     return '星港';
   }
 
@@ -387,7 +392,8 @@ export class BattleScene extends Phaser.Scene {
     const data = species[this.partner.speciesId];
     this.partnerNameText.setText(`${data.symbol} ${data.name}  Lv.${this.partner.level}`);
     this.partnerSymbol.setText(data.symbol);
-    data.moveIds.slice(0, 4).forEach((moveId, index) => {
+    this.moveLabels.forEach((label) => label.setText(''));
+    moveIdsFor(this.partner).forEach((moveId, index) => {
       const move = moves[moveId];
       this.moveLabels[index]?.setText(`${index + 1}. ${move.name} · ${this.elementName(move.element)} · ${move.rating}\nPP ${remainingPp(this.partner, moveId)}/${move.pp}`);
     });
@@ -404,11 +410,8 @@ export class BattleScene extends Phaser.Scene {
     this.visitorHpText.setText(`HP ${this.visitor.currentHp} / ${visitorMax}${visitorCondition}`);
     this.expText.setText(`EXP ${this.partner.exp} / ${expToNext(this.partner.level)}`);
     this.tonicText.setText(`H · 星辉恢复剂 ×${this.save.inventory?.tonics ?? 0}`);
-    if (this.request.boss) {
-      this.captureText.setText('特殊挑战 · 不可捕捉');
-    } else {
-      this.captureText.setText(`C · 捕捉 ${Math.round(captureChance(this.visitor) * 100)}% · 胶囊 ×${this.save.capsules}`);
-    }
+    if (this.request.boss) this.captureText.setText('特殊挑战 · 不可捕捉');
+    else this.captureText.setText(`C · 捕捉 ${Math.round(captureChance(this.visitor) * 100)}% · 胶囊 ×${this.save.capsules}`);
   }
 
   private conditionName(condition: ConditionType): string {
