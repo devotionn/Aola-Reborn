@@ -53,6 +53,7 @@ export function useTonicOnCreature(save: PlayerSave, creatureUid: string): Servi
   const target = findCreature(save, creatureUid);
   if (!target) return { ok: false, message: '没有找到要使用道具的星灵。' };
   if (save.inventory!.tonics <= 0) return { ok: false, message: '没有可用的星辉恢复剂。' };
+  if (target.currentHp <= 0) return { ok: false, message: `${species[target.speciesId].name} 已经倒下，普通恢复剂无法将它唤醒。` };
   const maximum = maxHpFor(target);
   if (target.currentHp >= maximum && !target.condition) return { ok: false, message: `${species[target.speciesId].name} 的体力和状态都已经恢复。` };
 
