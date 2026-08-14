@@ -1,5 +1,5 @@
 export type ElementType = 'fire' | 'water' | 'nature' | 'electric' | 'rock' | 'neutral';
-export type SceneKey = 'world' | 'wild' | 'grove';
+export type SceneKey = 'world' | 'wild' | 'grove' | 'mist';
 export type ConditionType = 'scorch' | 'sluggish';
 
 export interface BaseStats {
@@ -14,6 +14,11 @@ export interface GrowthRule {
   targetSpeciesId: string;
 }
 
+export interface MoveLearnRule {
+  level: number;
+  moveId: string;
+}
+
 export interface Species {
   id: string;
   name: string;
@@ -22,6 +27,7 @@ export interface Species {
   description: string;
   baseStats: BaseStats;
   moveIds: string[];
+  learnset?: MoveLearnRule[];
   tameRate: number;
   growth?: GrowthRule;
 }
@@ -54,12 +60,15 @@ export interface CreatureInstance {
   level: number;
   exp: number;
   currentHp: number;
+  moveIds?: string[];
+  pendingMoveIds?: string[];
   movePp?: Record<string, number>;
   condition?: CreatureCondition;
 }
 
 export interface PlayerInventory {
   tonics: number;
+  ppRefills: number;
 }
 
 export interface PlayerSave {
