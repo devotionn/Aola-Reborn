@@ -47,16 +47,20 @@ export class GroveScene extends Phaser.Scene {
     keyboard.on('keydown-E', () => this.interact());
     keyboard.on('keydown-H', () => this.useTonic());
     keyboard.on('keydown-B', () => this.openBag());
+    keyboard.on('keydown-L', () => this.openMoveLearn());
     keyboard.on('keydown-SPACE', () => this.dialogue?.next());
     keyboard.on('keydown-ESC', () => this.returnToField());
 
     this.questText = this.add.text(34, 30, '', {
       fontSize: '15px', fontStyle: 'bold', color: '#ffffff', backgroundColor: '#10182dcc', padding: { x: 14, y: 9 },
     }).setDepth(50);
-    this.statusText = this.add.text(640, 684, 'WASD 移动 · E 交互 · B 背包 · H 快速恢复 · ESC 返回星落原野', {
+    this.statusText = this.add.text(640, 684, 'WASD · E 交互 · B 背包 · L 学技能 · H 快速恢复 · ESC 返回星落原野', {
       fontSize: '14px', color: '#eef8ff', backgroundColor: '#10182ddd', padding: { x: 18, y: 9 },
     }).setOrigin(0.5).setDepth(50);
     this.refreshQuest();
+    if (this.save.flags.groveQuestRewarded && !this.save.flags.mistBeaconSurveyed) {
+      this.statusText.setText('第二调查已完成。北侧雾门已解锁，可进入第三调查区前置区域「雾镜湿地」。');
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -120,10 +124,20 @@ export class GroveScene extends Phaser.Scene {
       this.add.text(x, y + 60, '星纹石 · E 调查', { fontSize: '13px', fontStyle: 'bold', color: '#edfaff' }).setOrigin(0.5);
     }
 
-    const gate = findObject(groveMap, 'Points', 'return-gate');
-    if (gate) {
-      this.add.rectangle(gate.x + gate.width / 2, gate.y + gate.height / 2, gate.width, gate.height, 0x314e74, 0.96).setStrokeStyle(2, 0xb8ddff);
-      this.add.text(gate.x + gate.width / 2, gate.y + gate.height / 2, '返回星落原野', { fontSize: '14px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5);
+    const returnGate = findObject(groveMap, 'Points', 'return-gate');
+    if (returnGate) {
+      this.add.rectangle(returnGate.x + returnGate.width / 2, returnGate.y + returnGate.height / 2, returnGate.width, returnGate.height, 0x314e74, 0.96).setStrokeStyle(2, 0xb8ddff);
+      this.add.text(returnGate.x + returnGate.width / 2, returnGate.y + returnGate.height / 2, '返回星落原野', { fontSize: '14px', fontStyle: 'bold', color: '#fff' }).setOrigin(0.5);
+    }
+
+    const mistGate = findObject(groveMap, 'Points', 'mist-gate');
+    if (mistGate) {
+      const unlocked = Boolean(this.save.flags?.groveQuestRewarded);
+      this.add.rectangle(mistGate.x + mistGate.width / 2, mistGate.y + mistGate.height / 2, mistGate.width, mistGate.height, unlocked ? 0x596887 : 0x59605e, 0.96)
+        .setStrokeStyle(2, unlocked ? 0xc7e6ff : 0x8f9792);
+      this.add.text(mistGate.x + mistGate.width / 2, mistGate.y + mistGate.height / 2, unlocked ? '雾门 · 雾镜湿地' : '雾门 · 完成第二调查后解锁', {
+        fontSize: '12px', fontStyle: 'bold', color: '#ffffff',
+      }).setOrigin(0.5);
     }
   }
 
@@ -131,10 +145,20 @@ export class GroveScene extends Phaser.Scene {
     if (this.dialogue) { this.dialogue.next(); return; }
     const warden = findObject(groveMap, 'Points', 'warden');
     const stone = findObject(groveMap, 'Points', 'resonance-stone');
-    const gate = findObject(groveMap, 'Points', 'return-gate');
+    const returnGate = findObject(groveMap, 'Points', 'return-gate');
+    const mistGate = findObject(groveMap, 'Points', 'mist-gate');
     if (warden && containsPoint(warden, this.player.x, this.player.y, 75)) { this.talkWarden(); return; }
     if (stone && containsPoint(stone, this.player.x, this.player.y, 72)) { this.inspectStone(); return; }
-    if (gate && containsPoint(gate, this.player.x, this.player.y, 35)) { this.returnToField(); return; }
+    if (returnGate && containsPoint(returnGate, this.player.x, this.player.y, 35)) { this.returnToField(); return; }
+    if (mistGate && containsPoint(mistGate, this.player.x, this.player.y, 42)) {
+      if (!this.save.flags?.groveQuestRewarded) {
+        this.statusText.setText('雾门尚未稳定。先完成柏舟的第二调查任务。');
+        return;
+      }
+      writeSave(this.save);
+      this.scene.start('mist');
+      return;
+    }
     this.statusText.setText('林间只有风声和晶湖的水声，附近没有可交互目标。');
   }
 
@@ -149,6 +173,17 @@ export class GroveScene extends Phaser.Scene {
     if (this.dialogue) return;
     writeSave(this.save);
     this.scene.start('bag', { returnScene: 'grove' });
+  }
+
+  private openMoveLearn(): void {
+    if (this.dialogue) return;
+    const leader = this.save.party[0];
+    if ((leader.pendingMoveIds?.length ?? 0) === 0) {
+      this.statusText.setText('当前队首没有等待学习的新技能。');
+      return;
+    }
+    writeSave(this.save);
+    this.scene.start('moveLearn', { creatureUid: leader.uid, returnScene: 'grove' });
   }
 
   private talkWarden(): void {
@@ -168,7 +203,7 @@ export class GroveScene extends Phaser.Scene {
     if (flags.groveTrialCleared && !flags.groveQuestRewarded) {
       this.openDialogue('巡林员 · 柏舟', [
         '回声频率已经降下来了。看来不是晶湖失控，而是星纹石积累了太多星屑。',
-        '这份林地补给归你。以后经过烬苔林地时，也可以把这里当作第二条探索路线。',
+        '这份林地补给归你。北侧雾门也恢复了信号，可以去看看新的调查区。',
       ], () => {
         flags.groveQuestRewarded = true;
         this.save.credits += 520;
@@ -177,12 +212,12 @@ export class GroveScene extends Phaser.Scene {
         this.save.inventory.ppRefills += 1;
         writeSave(this.save);
         this.refreshQuest();
-        this.statusText.setText('第二调查完成：星币 ×520、恢复剂 ×2、星能补充剂 ×1。');
+        this.scene.restart();
       });
       return;
     }
     if (flags.groveQuestRewarded) {
-      this.openDialogue('巡林员 · 柏舟', ['林地目前很稳定。苔灯蛾与晶露蜗都只在这片区域被记录到，适合继续补全星灵手册。']);
+      this.openDialogue('巡林员 · 柏舟', ['林地目前很稳定。苔灯蛾与晶露蜗都只在这片区域被记录到；北侧雾门已经可以进入雾镜湿地。']);
       return;
     }
     this.openDialogue('巡林员 · 柏舟', ['东北侧星纹石仍在发出回声，靠近后按 E 调查。']);
@@ -255,7 +290,7 @@ export class GroveScene extends Phaser.Scene {
     let text = '第二调查：与巡林员柏舟交谈';
     if (flags.groveQuestAccepted) text = '第二调查：检查东北侧星纹石';
     if (flags.groveTrialCleared && !flags.groveQuestRewarded) text = '第二调查：向柏舟汇报';
-    if (flags.groveQuestRewarded) text = '第二调查：烬苔林地已完成 ✓';
+    if (flags.groveQuestRewarded) text = '第二调查完成 ✓ · 北侧雾门已解锁';
     this.questText.setText(text);
   }
 
