@@ -1,0 +1,61 @@
+{
+  "compressionlevel": -1,
+  "height": 45,
+  "infinite": false,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Barriers",
+      "objects": [
+        { "height": 96, "id": 1, "name": "shallow-pond", "type": "water", "width": 250, "x": 515, "y": 355 },
+        { "height": 115, "id": 2, "name": "west-rocks", "type": "terrain", "width": 125, "x": 70, "y": 105 },
+        { "height": 120, "id": 3, "name": "east-rocks", "type": "terrain", "width": 130, "x": 1080, "y": 110 },
+        { "height": 75, "id": 4, "name": "north-thicket", "type": "terrain", "width": 260, "x": 510, "y": 90 }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": 2,
+      "name": "EncounterZones",
+      "objects": [
+        { "height": 275, "id": 10, "name": "glow-grass-slope", "type": "encounter", "width": 350, "x": 95, "y": 285 },
+        { "height": 250, "id": 11, "name": "star-fragment-meadow", "type": "encounter", "width": 345, "x": 840, "y": 305 }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": 3,
+      "name": "Points",
+      "objects": [
+        { "height": 82, "id": 20, "name": "researcher", "type": "npc", "width": 90, "x": 200, "y": 180 },
+        { "height": 105, "id": 21, "name": "ancient-altar", "type": "quest", "width": 120, "x": 975, "y": 135 },
+        { "height": 46, "id": 22, "name": "return-gate", "type": "portal", "width": 170, "x": 555, "y": 620 },
+        { "height": 48, "id": 23, "name": "far-gate", "type": "portal", "width": 190, "x": 545, "y": 172 }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "nextlayerid": 4,
+  "nextobjectid": 24,
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "tiledversion": "1.11.2",
+  "tileheight": 16,
+  "tilesets": [],
+  "tilewidth": 16,
+  "type": "map",
+  "version": "1.10",
+  "width": 80
+}
