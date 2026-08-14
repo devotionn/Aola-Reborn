@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { elementMultiplier } from '../data/moves';
 import type { CreatureInstance, PlayerSave } from '../types';
 import {
+  allMovePpDepleted,
   captureChance,
   chooseNpcMove,
+  choosePlayerMove,
   ensureMovePp,
   expToNext,
   grantExp,
@@ -15,13 +17,28 @@ import {
   spendMovePp,
   tickCondition,
 } from './BattleSystem';
-import { usePpRefillOnLeader } from './FacilitySystem';
+import { usePpRefillOnCreature, usePpRefillOnLeader, useTonicOnCreature } from './FacilitySystem';
 
 function creature(speciesId: string, level: number): CreatureInstance {
-  const value: CreatureInstance = { uid: `test-${speciesId}`, speciesId, level, exp: 0, currentHp: 1 };
+  const value: CreatureInstance = { uid: `test-${speciesId}-${level}`, speciesId, level, exp: 0, currentHp: 1 };
   value.currentHp = maxHpFor(value);
   ensureMovePp(value);
   return value;
+}
+
+function saveWithParty(party: CreatureInstance[]): PlayerSave {
+  return {
+    version: 1,
+    trainerName: 'test',
+    credits: 0,
+    capsules: 0,
+    inventory: { tonics: 1, ppRefills: 1 },
+    party,
+    collection: [],
+    discoveredSpecies: party.map((member) => member.speciesId),
+    world: { x: 0, y: 0 },
+    flags: {},
+  };
 }
 
 describe('growth progression', () => {
@@ -67,6 +84,19 @@ describe('growth progression', () => {
     expect(moveIdsFor(partner)).not.toContain(oldMove);
     expect(partner.pendingMoveIds).not.toContain('novaPounce');
   });
+
+  it('grows both Ember Moss Grove exclusive creatures at level 14', () => {
+    const moth = creature('mossLanternMoth', 13);
+    moth.exp = expToNext(13) - 1;
+    const snail = creature('crystalDewSnail', 13);
+    snail.exp = expToNext(13) - 1;
+
+    grantExp(moth, 2);
+    grantExp(snail, 2);
+
+    expect(moth.speciesId).toBe('verdantLampwing');
+    expect(snail.speciesId).toBe('moonCrystalSnail');
+  });
 });
 
 describe('capture probability', () => {
@@ -111,28 +141,54 @@ describe('move pp', () => {
     expect(chooseNpcMove(visitor).id).toBe('strugglePulse');
   });
 
+  it('uses the fallback action when the player has no pp left', () => {
+    const partner = creature('emberMochi', 8);
+    moveIdsFor(partner).forEach((moveId) => { partner.movePp![moveId] = 0; });
+
+    expect(allMovePpDepleted(partner)).toBe(true);
+    expect(choosePlayerMove(partner, 0)?.id).toBe('strugglePulse');
+  });
+
   it('restores partial pp from a player inventory refill', () => {
     const partner = creature('emberMochi', 5);
     const moveId = moveIdsFor(partner)[0];
     partner.movePp![moveId] = 0;
-    const save: PlayerSave = {
-      version: 1,
-      trainerName: 'test',
-      credits: 0,
-      capsules: 0,
-      inventory: { tonics: 0, ppRefills: 1 },
-      party: [partner],
-      collection: [],
-      discoveredSpecies: ['emberMochi'],
-      world: { x: 0, y: 0 },
-      flags: {},
-    };
+    const save = saveWithParty([partner]);
 
     const result = usePpRefillOnLeader(save);
 
     expect(result.ok).toBe(true);
     expect(save.inventory?.ppRefills).toBe(0);
     expect(remainingPp(partner, moveId)).toBeGreaterThan(0);
+  });
+
+  it('can target pp recovery at a non-leader party member', () => {
+    const leader = creature('emberMochi', 7);
+    const second = creature('stoneShell', 7);
+    const moveId = moveIdsFor(second)[0];
+    second.movePp![moveId] = 0;
+    const save = saveWithParty([leader, second]);
+
+    const result = usePpRefillOnCreature(save, second.uid);
+
+    expect(result.ok).toBe(true);
+    expect(remainingPp(second, moveId)).toBeGreaterThan(0);
+    expect(save.inventory?.ppRefills).toBe(0);
+  });
+});
+
+describe('recovery items', () => {
+  it('does not let a normal tonic revive a fainted party member', () => {
+    const leader = creature('emberMochi', 7);
+    const fainted = creature('starlitBun', 7);
+    fainted.currentHp = 0;
+    const save = saveWithParty([leader, fainted]);
+
+    const result = useTonicOnCreature(save, fainted.uid);
+
+    expect(result.ok).toBe(false);
+    expect(fainted.currentHp).toBe(0);
+    expect(save.inventory?.tonics).toBe(1);
   });
 });
 
