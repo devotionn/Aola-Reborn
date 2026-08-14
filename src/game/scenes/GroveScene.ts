@@ -9,7 +9,7 @@ import type { BattleRequest, PlayerSave } from '../types';
 import { DialogueBox } from '../ui/DialogueBox';
 
 const groveMap = groveMapJson as ObjectMapData;
-const groveWildPool = ['mossLanternMoth', 'stoneShell', 'starlitBun', 'sproutTanuki', 'rippleFin', 'voltFinch'];
+const groveWildPool = ['mossLanternMoth', 'crystalDewSnail', 'stoneShell', 'starlitBun', 'sproutTanuki', 'rippleFin', 'voltFinch'];
 
 export class GroveScene extends Phaser.Scene {
   private save!: PlayerSave;
@@ -32,6 +32,7 @@ export class GroveScene extends Phaser.Scene {
     if (!save.flags?.wildQuestRewarded) { this.scene.start('wild'); return; }
     this.save = save;
     this.save.flags ??= {};
+    this.save.inventory ??= { tonics: 0, ppRefills: 0 };
 
     this.cameras.main.setBackgroundColor('#5d7862');
     this.drawMap();
@@ -45,13 +46,14 @@ export class GroveScene extends Phaser.Scene {
     keyboard.addCapture(['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
     keyboard.on('keydown-E', () => this.interact());
     keyboard.on('keydown-H', () => this.useTonic());
+    keyboard.on('keydown-B', () => this.openBag());
     keyboard.on('keydown-SPACE', () => this.dialogue?.next());
     keyboard.on('keydown-ESC', () => this.returnToField());
 
     this.questText = this.add.text(34, 30, '', {
       fontSize: '15px', fontStyle: 'bold', color: '#ffffff', backgroundColor: '#10182dcc', padding: { x: 14, y: 9 },
     }).setDepth(50);
-    this.statusText = this.add.text(640, 684, 'WASD 移动 · E 交互 · H 恢复剂 · 林地实体碰撞 · ESC 返回星落原野', {
+    this.statusText = this.add.text(640, 684, 'WASD 移动 · E 交互 · B 背包 · H 快速恢复 · ESC 返回星落原野', {
       fontSize: '14px', color: '#eef8ff', backgroundColor: '#10182ddd', padding: { x: 18, y: 9 },
     }).setOrigin(0.5).setDepth(50);
     this.refreshQuest();
@@ -94,7 +96,8 @@ export class GroveScene extends Phaser.Scene {
     this.encounterZones.forEach((object) => {
       this.add.rectangle(object.x + object.width / 2, object.y + object.height / 2, object.width, object.height, 0x547f4d, 0.72)
         .setStrokeStyle(3, 0x80a46d);
-      this.add.text(object.x + object.width / 2, object.y + object.height / 2, object.name === 'moss-meadow' ? '苔光草甸\n苔灯蛾出没' : '烬蕨坡\n独立遭遇区', {
+      const label = object.name === 'moss-meadow' ? '苔光草甸\n苔灯蛾出没' : '烬蕨坡\n晶露蜗出没';
+      this.add.text(object.x + object.width / 2, object.y + object.height / 2, label, {
         fontSize: '17px', fontStyle: 'bold', color: '#eaf4dd', align: 'center',
       }).setOrigin(0.5);
     });
@@ -142,6 +145,12 @@ export class GroveScene extends Phaser.Scene {
     this.statusText.setText(result.message);
   }
 
+  private openBag(): void {
+    if (this.dialogue) return;
+    writeSave(this.save);
+    this.scene.start('bag', { returnScene: 'grove' });
+  }
+
   private talkWarden(): void {
     const flags = this.save.flags!;
     if (!flags.groveQuestAccepted) {
@@ -163,16 +172,17 @@ export class GroveScene extends Phaser.Scene {
       ], () => {
         flags.groveQuestRewarded = true;
         this.save.credits += 520;
-        this.save.inventory ??= { tonics: 0 };
+        this.save.inventory ??= { tonics: 0, ppRefills: 0 };
         this.save.inventory.tonics += 2;
+        this.save.inventory.ppRefills += 1;
         writeSave(this.save);
         this.refreshQuest();
-        this.statusText.setText('第二调查任务完成：星币 ×520、星辉恢复剂 ×2。');
+        this.statusText.setText('第二调查完成：星币 ×520、恢复剂 ×2、星能补充剂 ×1。');
       });
       return;
     }
     if (flags.groveQuestRewarded) {
-      this.openDialogue('巡林员 · 柏舟', ['林地目前很稳定。苔灯蛾只在这片林地被记录到，适合继续补全星灵手册。']);
+      this.openDialogue('巡林员 · 柏舟', ['林地目前很稳定。苔灯蛾与晶露蜗都只在这片区域被记录到，适合继续补全星灵手册。']);
       return;
     }
     this.openDialogue('巡林员 · 柏舟', ['东北侧星纹石仍在发出回声，靠近后按 E 调查。']);
