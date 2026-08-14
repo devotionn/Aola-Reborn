@@ -8,7 +8,8 @@ export const species: Record<string, Species> = {
   },
   solarFlare: {
     id: 'solarFlare', name: '曜焰灵', element: 'fire', symbol: '曜炎', description: '炽尾团子成长后的姿态，尾焰像一枚持续燃烧的小太阳。',
-    baseStats: { hp: 78, spirit: 88, focus: 65, speed: 76 }, moveIds: ['flareRush', 'solarBlink', 'starBump', 'cometDash'], tameRate: 0.18,
+    baseStats: { hp: 78, spirit: 88, focus: 65, speed: 76 }, moveIds: ['flareRush', 'solarBlink', 'starBump', 'cometDash'],
+    learnset: [{ level: 12, moveId: 'novaPounce' }], tameRate: 0.18,
   },
   rippleFin: {
     id: 'rippleFin', name: '澜鳍兽', element: 'water', symbol: '澜', description: '喜欢在星港水边散步。',
@@ -17,7 +18,8 @@ export const species: Record<string, Species> = {
   },
   azureTide: {
     id: 'azureTide', name: '沧澜兽', element: 'water', symbol: '沧', description: '澜鳍兽成长后的姿态，可以感知很远处的潮汐与星光。',
-    baseStats: { hp: 86, spirit: 78, focus: 78, speed: 67 }, moveIds: ['tidePulse', 'moonTide', 'bubblePop', 'cometDash'], tameRate: 0.18,
+    baseStats: { hp: 86, spirit: 78, focus: 78, speed: 67 }, moveIds: ['tidePulse', 'moonTide', 'bubblePop', 'cometDash'],
+    learnset: [{ level: 12, moveId: 'abyssalCurrent' }], tameRate: 0.18,
   },
   sproutTanuki: {
     id: 'sproutTanuki', name: '森芽狸', element: 'nature', symbol: '芽', description: '头顶的小芽会随着心情开合。',
@@ -26,7 +28,8 @@ export const species: Record<string, Species> = {
   },
   groveCrown: {
     id: 'groveCrown', name: '森冠狸', element: 'nature', symbol: '森', description: '森芽狸成长后的姿态，枝叶形成了像王冠一样的纹路。',
-    baseStats: { hp: 84, spirit: 80, focus: 74, speed: 72 }, moveIds: ['vineArc', 'seedBurst', 'leafCut', 'cometDash'], tameRate: 0.18,
+    baseStats: { hp: 84, spirit: 80, focus: 74, speed: 72 }, moveIds: ['vineArc', 'seedBurst', 'leafCut', 'cometDash'],
+    learnset: [{ level: 12, moveId: 'thornHalo' }], tameRate: 0.18,
   },
   voltFinch: {
     id: 'voltFinch', name: '闪羽雀', element: 'electric', symbol: '闪', description: '总在追逐远处的亮光。',
@@ -43,6 +46,11 @@ export const species: Record<string, Species> = {
   mossLanternMoth: {
     id: 'mossLanternMoth', name: '苔灯蛾', element: 'nature', symbol: '苔', description: '只在烬苔林地暮色中出现，翅面会吸附星屑并泛出柔和绿光。',
     baseStats: { hp: 60, spirit: 76, focus: 55, speed: 79 }, moveIds: ['leafCut', 'seedBurst', 'staticBolt', 'cometDash'], tameRate: 0.3,
+  },
+  crystalDewSnail: {
+    id: 'crystalDewSnail', name: '晶露蜗', element: 'water', symbol: '露', description: '栖息在晶湖湿润岩面上的缓慢星灵，透明外壳会把月光折成细碎光点。',
+    baseStats: { hp: 82, spirit: 57, focus: 84, speed: 29 }, moveIds: ['bubblePop', 'pebbleShot', 'tidePulse', 'stoneOrbit'],
+    learnset: [{ level: 11, moveId: 'moonTide' }], tameRate: 0.28,
   },
   auroraDeer: {
     id: 'auroraDeer', name: '曜角鹿', element: 'electric', symbol: '曜', description: '星落原野的古老守护星灵，角上流动着像极光一样的微光。',
