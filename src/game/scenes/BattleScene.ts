@@ -3,19 +3,20 @@ import { moves } from '../data/moves';
 import { species } from '../data/species';
 import { createCreature, loadSave, writeSave } from '../state/save';
 import {
+  allMovePpDepleted,
   applyTurn,
   captureChance,
   chooseNpcMove,
+  choosePlayerMove,
   expToNext,
   grantExp,
   maxHpFor,
   moveIdsFor,
   remainingPp,
-  spendMovePp,
   speedFor,
   tickCondition,
 } from '../systems/BattleSystem';
-import { useTonicOnLeader } from '../systems/FacilitySystem';
+import { usePpRefillOnCreature, useTonicOnCreature } from '../systems/FacilitySystem';
 import type { BattleRequest, ConditionType, CreatureInstance, Move, PlayerSave, SceneKey } from '../types';
 
 export class BattleScene extends Phaser.Scene {
@@ -32,10 +33,11 @@ export class BattleScene extends Phaser.Scene {
   private partnerNameText!: Phaser.GameObjects.Text;
   private partnerSymbol!: Phaser.GameObjects.Text;
   private captureText!: Phaser.GameObjects.Text;
-  private tonicText!: Phaser.GameObjects.Text;
+  private itemText!: Phaser.GameObjects.Text;
   private expText!: Phaser.GameObjects.Text;
   private moveLabels: Phaser.GameObjects.Text[] = [];
   private switchOverlay?: Phaser.GameObjects.Container;
+  private itemOverlay?: Phaser.GameObjects.Container;
 
   constructor() { super('battle'); }
 
@@ -90,9 +92,9 @@ export class BattleScene extends Phaser.Scene {
     this.add.text(1030, 592, 'Q · 更换伙伴', { fontSize: '14px', color: '#f1e9ff' }).setOrigin(0.5);
     switchButton.on('pointerdown', () => this.openSwitchMenu());
 
-    const tonicButton = this.add.rectangle(1030, 636, 270, 38, 0x456b78, 0.96).setStrokeStyle(1, 0x9bdce7).setInteractive({ useHandCursor: true });
-    this.tonicText = this.add.text(1030, 636, '', { fontSize: '14px', color: '#eafcff' }).setOrigin(0.5);
-    tonicButton.on('pointerdown', () => this.useTonic());
+    const itemButton = this.add.rectangle(1030, 636, 270, 38, 0x456b78, 0.96).setStrokeStyle(1, 0x9bdce7).setInteractive({ useHandCursor: true });
+    this.itemText = this.add.text(1030, 636, '', { fontSize: '13px', color: '#eafcff' }).setOrigin(0.5);
+    itemButton.on('pointerdown', () => this.openItemMenu());
 
     const leaveButton = this.add.rectangle(1030, 680, 270, 32, 0x3b4564, 0.96).setStrokeStyle(1, 0x91a3c8).setInteractive({ useHandCursor: true });
     this.add.text(1030, 680, `ESC · 返回${this.returnLabel()}`, { fontSize: '13px', color: '#dce7ff' }).setOrigin(0.5);
@@ -106,7 +108,8 @@ export class BattleScene extends Phaser.Scene {
       keyboard.on('keydown-FOUR', () => this.playRound(3));
       keyboard.on('keydown-C', () => this.tryCapture());
       keyboard.on('keydown-Q', () => this.openSwitchMenu());
-      keyboard.on('keydown-H', () => this.useTonic());
+      keyboard.on('keydown-I', () => this.openItemMenu());
+      keyboard.on('keydown-H', () => this.useBattleItem('tonic'));
       keyboard.on('keydown-ESC', () => this.leave());
     }
 
@@ -147,20 +150,20 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private playRound(index: number): void {
-    if (this.busy || this.switchOverlay || this.partner.currentHp <= 0 || this.visitor.currentHp <= 0) return;
-    const moveId = moveIdsFor(this.partner)[index];
-    if (!moveId) return;
-    if (!spendMovePp(this.partner, moveId)) {
-      this.setLog(`${moves[moveId].name} 的 PP 已耗尽，换一个技能、伙伴，或使用星能补充剂。`);
+    if (this.busy || this.hasOverlay() || this.partner.currentHp <= 0 || this.visitor.currentHp <= 0) return;
+    const playerMove = choosePlayerMove(this.partner, index);
+    if (!playerMove) {
+      const moveId = moveIdsFor(this.partner)[index];
+      this.setLog(moveId ? `${moves[moveId].name} 的 PP 已耗尽。换一个仍有 PP 的技能、伙伴，或打开 I 道具补充。` : '这个技能槽目前为空。');
       this.refreshPartnerPresentation();
       return;
     }
 
     this.busy = true;
-    const playerMove = moves[moveId];
     const npcMove = chooseNpcMove(this.visitor);
     const playerFirst = speedFor(this.partner) >= speedFor(this.visitor);
     const notes: string[] = [];
+    if (playerMove.id === 'strugglePulse') notes.push('所有常规技能 PP 都已耗尽，只能使用余辉震荡！');
     if (playerFirst) {
       notes.push(this.perform(this.partner, this.visitor, playerMove));
       if (this.visitor.currentHp > 0) notes.push(this.perform(this.visitor, this.partner, npcMove));
@@ -200,7 +203,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private openSwitchMenu(): void {
-    if (this.busy || this.switchOverlay || this.visitor.currentHp <= 0) return;
+    if (this.busy || this.hasOverlay() || this.visitor.currentHp <= 0) return;
     const available = this.save.party.some((creature, index) => index > 0 && creature.currentHp > 0);
     if (!available) { this.setLog('当前没有其他可以上场的伙伴。'); return; }
 
@@ -262,13 +265,53 @@ export class BattleScene extends Phaser.Scene {
     this.time.delayedCall(600, () => this.resolveRoundEnd());
   }
 
-  private useTonic(): void {
-    if (this.busy || this.switchOverlay || this.visitor.currentHp <= 0) return;
-    const result = useTonicOnLeader(this.save);
-    if (!result.ok) { this.setLog(result.message); this.refreshMeters(); return; }
+  private openItemMenu(): void {
+    if (this.busy || this.hasOverlay() || this.visitor.currentHp <= 0) return;
+    const panel = this.add.container(0, 0).setDepth(110);
+    panel.add(this.add.rectangle(640, 360, 980, 420, 0x081229, 0.99).setStrokeStyle(3, 0x80c9d8));
+    panel.add(this.add.text(640, 188, '战斗物品', { fontSize: '28px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5));
+    panel.add(this.add.text(640, 224, '恢复/补充类道具会消耗本回合，对手随后获得行动机会', { fontSize: '14px', color: '#b9cfe4' }).setOrigin(0.5));
 
+    this.addBattleItemCard(panel, 350, 350, '星辉恢复剂', `持有 ${this.save.inventory?.tonics ?? 0}\n恢复约 45% HP并清异常`, () => this.useBattleItem('tonic'));
+    this.addBattleItemCard(panel, 640, 350, '星能补充剂', `持有 ${this.save.inventory?.ppRefills ?? 0}\n恢复四技能约 50% PP`, () => this.useBattleItem('pp'));
+    this.addBattleItemCard(panel, 930, 350, '捕捉胶囊', `持有 ${this.save.capsules}\n${this.request.boss ? '当前特殊战不可捕捉' : `当前成功率 ${Math.round(captureChance(this.visitor) * 100)}%`}`, () => this.useCaptureFromMenu());
+
+    const close = this.add.text(640, 518, 'I / ESC · 关闭', { fontSize: '14px', color: '#dbe6f7' }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    close.on('pointerdown', () => this.closeItemMenu());
+    panel.add(close);
+    this.itemOverlay = panel;
+  }
+
+  private addBattleItemCard(panel: Phaser.GameObjects.Container, x: number, y: number, title: string, detail: string, action: () => void): void {
+    const card = this.add.rectangle(x, y, 250, 150, 0x203b5f, 0.98).setStrokeStyle(2, 0x75b9cf).setInteractive({ useHandCursor: true });
+    card.on('pointerover', () => card.setFillStyle(0x2b527d));
+    card.on('pointerout', () => card.setFillStyle(0x203b5f));
+    card.on('pointerdown', action);
+    panel.add(card);
+    panel.add(this.add.text(x, y - 35, title, { fontSize: '18px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5));
+    panel.add(this.add.text(x, y + 24, detail, { fontSize: '13px', color: '#c8dcec', align: 'center', lineSpacing: 6 }).setOrigin(0.5));
+  }
+
+  private closeItemMenu(): void {
+    this.itemOverlay?.destroy(true);
+    this.itemOverlay = undefined;
+  }
+
+  private useBattleItem(kind: 'tonic' | 'pp'): void {
+    if (this.busy || this.switchOverlay || this.visitor.currentHp <= 0) return;
+    const result = kind === 'tonic'
+      ? useTonicOnCreature(this.save, this.partner.uid)
+      : usePpRefillOnCreature(this.save, this.partner.uid);
+    if (!result.ok) {
+      this.setLog(result.message);
+      this.refreshMeters();
+      return;
+    }
+
+    this.closeItemMenu();
     this.busy = true;
     writeSave(this.save);
+    this.refreshPartnerPresentation();
     this.refreshMeters();
     const response = chooseNpcMove(this.visitor);
     const note = this.perform(this.visitor, this.partner, response);
@@ -276,8 +319,13 @@ export class BattleScene extends Phaser.Scene {
     this.time.delayedCall(600, () => this.resolveRoundEnd());
   }
 
+  private useCaptureFromMenu(): void {
+    this.closeItemMenu();
+    this.tryCapture();
+  }
+
   private tryCapture(): void {
-    if (this.busy || this.switchOverlay || this.visitor.currentHp <= 0) return;
+    if (this.busy || this.hasOverlay() || this.visitor.currentHp <= 0) return;
     if (this.request.boss) {
       this.setLog(this.request.captureBlockedMessage ?? '特殊挑战中的星灵无法捕捉。先完成它的考验。');
       return;
@@ -368,9 +416,14 @@ export class BattleScene extends Phaser.Scene {
 
   private leave(): void {
     if (this.switchOverlay) { this.closeSwitchMenu(); return; }
+    if (this.itemOverlay) { this.closeItemMenu(); return; }
     if (this.busy) return;
     writeSave(this.save);
     this.finishScene();
+  }
+
+  private hasOverlay(): boolean {
+    return Boolean(this.switchOverlay || this.itemOverlay);
   }
 
   private finishScene(): void {
@@ -393,6 +446,15 @@ export class BattleScene extends Phaser.Scene {
     this.partnerNameText.setText(`${data.symbol} ${data.name}  Lv.${this.partner.level}`);
     this.partnerSymbol.setText(data.symbol);
     this.moveLabels.forEach((label) => label.setText(''));
+    const depleted = allMovePpDepleted(this.partner);
+    if (depleted) {
+      this.moveLabels[0]?.setText('1. 余辉震荡 · 星 · 28\n全技能 PP 耗尽时自动启用');
+      moveIdsFor(this.partner).slice(1).forEach((moveId, offset) => {
+        const move = moves[moveId];
+        this.moveLabels[offset + 1]?.setText(`${offset + 2}. ${move.name} · PP 0/${move.pp}`);
+      });
+      return;
+    }
     moveIdsFor(this.partner).forEach((moveId, index) => {
       const move = moves[moveId];
       this.moveLabels[index]?.setText(`${index + 1}. ${move.name} · ${this.elementName(move.element)} · ${move.rating}\nPP ${remainingPp(this.partner, moveId)}/${move.pp}`);
@@ -409,7 +471,7 @@ export class BattleScene extends Phaser.Scene {
     this.partnerHpText.setText(`HP ${this.partner.currentHp} / ${partnerMax}${partnerCondition}`);
     this.visitorHpText.setText(`HP ${this.visitor.currentHp} / ${visitorMax}${visitorCondition}`);
     this.expText.setText(`EXP ${this.partner.exp} / ${expToNext(this.partner.level)}`);
-    this.tonicText.setText(`H · 星辉恢复剂 ×${this.save.inventory?.tonics ?? 0}`);
+    this.itemText.setText(`I · 道具  恢复×${this.save.inventory?.tonics ?? 0}  星能×${this.save.inventory?.ppRefills ?? 0}`);
     if (this.request.boss) this.captureText.setText('特殊挑战 · 不可捕捉');
     else this.captureText.setText(`C · 捕捉 ${Math.round(captureChance(this.visitor) * 100)}% · 胶囊 ×${this.save.capsules}`);
   }
