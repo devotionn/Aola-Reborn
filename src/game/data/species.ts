@@ -46,15 +46,31 @@ export const species: Record<string, Species> = {
   mossLanternMoth: {
     id: 'mossLanternMoth', name: '苔灯蛾', element: 'nature', symbol: '苔', description: '只在烬苔林地暮色中出现，翅面会吸附星屑并泛出柔和绿光。',
     baseStats: { hp: 60, spirit: 76, focus: 55, speed: 79 }, moveIds: ['leafCut', 'seedBurst', 'staticBolt', 'cometDash'], tameRate: 0.3,
+    growth: { level: 14, targetSpeciesId: 'verdantLampwing' },
+  },
+  verdantLampwing: {
+    id: 'verdantLampwing', name: '森灯羽', element: 'nature', symbol: '羽灯', description: '苔灯蛾成长后的形态，宽大的翅面像两盏漂浮在林冠间的翠色星灯。',
+    baseStats: { hp: 76, spirit: 94, focus: 69, speed: 91 }, moveIds: ['vineArc', 'seedBurst', 'cometDash', 'staticBolt'],
+    learnset: [{ level: 16, moveId: 'thornHalo' }], tameRate: 0.14,
   },
   crystalDewSnail: {
     id: 'crystalDewSnail', name: '晶露蜗', element: 'water', symbol: '露', description: '栖息在晶湖湿润岩面上的缓慢星灵，透明外壳会把月光折成细碎光点。',
     baseStats: { hp: 82, spirit: 57, focus: 84, speed: 29 }, moveIds: ['bubblePop', 'pebbleShot', 'tidePulse', 'stoneOrbit'],
     learnset: [{ level: 11, moveId: 'moonTide' }], tameRate: 0.28,
+    growth: { level: 14, targetSpeciesId: 'moonCrystalSnail' },
+  },
+  moonCrystalSnail: {
+    id: 'moonCrystalSnail', name: '月晶螺', element: 'water', symbol: '月晶', description: '晶露蜗成长后的形态，巨大晶壳会储存月色，并在移动时投下细碎水光。',
+    baseStats: { hp: 104, spirit: 70, focus: 103, speed: 38 }, moveIds: ['moonTide', 'tidePulse', 'stoneOrbit', 'bubblePop'],
+    learnset: [{ level: 16, moveId: 'abyssalCurrent' }], tameRate: 0.13,
   },
   auroraDeer: {
     id: 'auroraDeer', name: '曜角鹿', element: 'electric', symbol: '曜', description: '星落原野的古老守护星灵，角上流动着像极光一样的微光。',
     baseStats: { hp: 96, spirit: 82, focus: 70, speed: 68 }, moveIds: ['sparkNibble', 'cometDash', 'staticBolt', 'thunderSkip'], tameRate: 0.08,
+  },
+  mistMirrorHeron: {
+    id: 'mistMirrorHeron', name: '镜雾鹭', element: 'water', symbol: '镜鹭', description: '雾镜湿地深处的守望星灵，羽翼掠过镜池时会让倒影比真实世界晚一拍。',
+    baseStats: { hp: 106, spirit: 92, focus: 78, speed: 86 }, moveIds: ['moonTide', 'tidePulse', 'staticBolt', 'cometDash'], tameRate: 0.05,
   },
 };
 
