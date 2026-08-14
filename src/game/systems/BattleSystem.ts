@@ -6,11 +6,18 @@ export interface TurnOutcome {
   points: number;
   affinity: number;
   hit: boolean;
+  appliedCondition?: string;
 }
 
 export interface GrowthResult {
   levelsGained: number;
   grownTo?: string;
+}
+
+export interface ConditionTick {
+  points: number;
+  message?: string;
+  cleared: boolean;
 }
 
 export function maxHpFor(creature: CreatureInstance): number {
@@ -19,7 +26,33 @@ export function maxHpFor(creature: CreatureInstance): number {
 }
 
 export function speedFor(creature: CreatureInstance): number {
-  return Math.floor(species[creature.speciesId].baseStats.speed + creature.level * 1.4);
+  const base = Math.floor(species[creature.speciesId].baseStats.speed + creature.level * 1.4);
+  return creature.condition?.type === 'sluggish' ? Math.max(1, Math.floor(base * 0.75)) : base;
+}
+
+export function ensureMovePp(creature: CreatureInstance): Record<string, number> {
+  creature.movePp ??= {};
+  species[creature.speciesId].moveIds.forEach((moveId) => {
+    if (creature.movePp?.[moveId] === undefined) creature.movePp![moveId] = moves[moveId].pp;
+  });
+  return creature.movePp;
+}
+
+export function remainingPp(creature: CreatureInstance, moveId: string): number {
+  return ensureMovePp(creature)[moveId] ?? 0;
+}
+
+export function spendMovePp(creature: CreatureInstance, moveId: string): boolean {
+  const pool = ensureMovePp(creature);
+  const current = pool[moveId] ?? 0;
+  if (current <= 0) return false;
+  pool[moveId] = current - 1;
+  return true;
+}
+
+export function restoreMovePp(creature: CreatureInstance): void {
+  creature.movePp = {};
+  ensureMovePp(creature);
 }
 
 export function resolveTurn(left: CreatureInstance, right: CreatureInstance, move: Move): TurnOutcome {
@@ -29,7 +62,13 @@ export function resolveTurn(left: CreatureInstance, right: CreatureInstance, mov
   const spirit = species[left.speciesId].baseStats.spirit + left.level * 2.1;
   const focus = species[right.speciesId].baseStats.focus + right.level * 1.7;
   const raw = (((2 * left.level + 10) / 250) * (spirit / Math.max(1, focus)) * move.rating + 3);
-  return { points: Math.max(1, Math.floor(raw * affinity)), affinity, hit: true };
+  const outcome: TurnOutcome = { points: Math.max(1, Math.floor(raw * affinity)), affinity, hit: true };
+
+  if (move.condition && !right.condition && Math.random() <= move.condition.chance) {
+    right.condition = { type: move.condition.type, turns: move.condition.turns };
+    outcome.appliedCondition = move.condition.type;
+  }
+  return outcome;
 }
 
 export function applyTurn(left: CreatureInstance, right: CreatureInstance, move: Move): TurnOutcome {
@@ -38,9 +77,33 @@ export function applyTurn(left: CreatureInstance, right: CreatureInstance, move:
   return outcome;
 }
 
+export function tickCondition(creature: CreatureInstance): ConditionTick {
+  const condition = creature.condition;
+  if (!condition || creature.currentHp <= 0) return { points: 0, cleared: false };
+
+  let points = 0;
+  let message: string | undefined;
+  if (condition.type === 'scorch') {
+    points = Math.max(1, Math.floor(maxHpFor(creature) * 0.06));
+    creature.currentHp = Math.max(0, creature.currentHp - points);
+    message = `${species[creature.speciesId].name} 受到灼热影响，失去 ${points} HP。`;
+  } else if (condition.type === 'sluggish') {
+    message = `${species[creature.speciesId].name} 仍处于迟缓状态。`;
+  }
+
+  condition.turns -= 1;
+  const cleared = condition.turns <= 0;
+  if (cleared) creature.condition = undefined;
+  return { points, message, cleared };
+}
+
 export function chooseNpcMove(creature: CreatureInstance): Move {
-  const options = species[creature.speciesId].moveIds.map((id) => moves[id]);
-  return options[Math.floor(Math.random() * options.length)];
+  const ids = species[creature.speciesId].moveIds;
+  const available = ids.filter((id) => remainingPp(creature, id) > 0);
+  const pool = available.length > 0 ? available : ids;
+  const id = pool[Math.floor(Math.random() * pool.length)];
+  if (available.length > 0) spendMovePp(creature, id);
+  return moves[id];
 }
 
 export function expToNext(level: number): number {
@@ -52,6 +115,8 @@ export function applyGrowth(creature: CreatureInstance): string | undefined {
   if (!rule || creature.level < rule.level || !species[rule.targetSpeciesId]) return undefined;
   creature.speciesId = rule.targetSpeciesId;
   creature.currentHp = maxHpFor(creature);
+  creature.movePp = {};
+  ensureMovePp(creature);
   return rule.targetSpeciesId;
 }
 
@@ -78,4 +143,6 @@ export function captureChance(creature: CreatureInstance): number {
 
 export function restoreCreature(creature: CreatureInstance): void {
   creature.currentHp = maxHpFor(creature);
+  creature.condition = undefined;
+  restoreMovePp(creature);
 }
