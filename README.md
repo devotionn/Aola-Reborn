@@ -27,7 +27,7 @@ agent/bootstrap-playable-mvp
 
 当前开发基线：**v0.8 mist investigation & battle items**。
 
-最新 v0.8 README 基线 commit：`5dffd687`。GitHub Actions run #164 已完成并通过：
+v0.8 功能实现基线 commit：`5dffd687`。该功能基线对应的 GitHub Actions run #164 已完成并通过；后续 README / 分支同步提交不改变 v0.8 玩法能力：
 
 ```text
 Install ✅
