@@ -43,10 +43,12 @@ export class WildScene extends Phaser.Scene {
     keyboard.addCapture(['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
     keyboard.on('keydown-E', () => this.interact());
     keyboard.on('keydown-H', () => this.useTonic());
+    keyboard.on('keydown-B', () => this.openBag());
+    keyboard.on('keydown-L', () => this.openMoveLearn());
     keyboard.on('keydown-SPACE', () => this.dialogue?.next());
     keyboard.on('keydown-ESC', () => this.returnToHub());
 
-    this.statusText = this.add.text(640, 682, 'WASD 移动 · E 交互 · H 恢复剂 · Tiled 碰撞/遭遇 · ESC 返回星港', {
+    this.statusText = this.add.text(640, 682, 'WASD · E 交互 · B 背包 · L 学技能 · H 快速恢复 · ESC 返回星港', {
       fontSize: '14px', color: '#eef8ff', backgroundColor: '#0d1738dd', padding: { x: 18, y: 9 },
     }).setOrigin(0.5).setDepth(50);
     this.questText = this.add.text(34, 30, '', {
@@ -166,6 +168,23 @@ export class WildScene extends Phaser.Scene {
     const result = useTonicOnLeader(this.save);
     if (result.ok) writeSave(this.save);
     this.statusText.setText(result.message);
+  }
+
+  private openBag(): void {
+    if (this.dialogue) return;
+    writeSave(this.save);
+    this.scene.start('bag', { returnScene: 'wild' });
+  }
+
+  private openMoveLearn(): void {
+    if (this.dialogue) return;
+    const leader = this.save.party[0];
+    if ((leader.pendingMoveIds?.length ?? 0) === 0) {
+      this.statusText.setText('当前队首没有等待学习的新技能。');
+      return;
+    }
+    writeSave(this.save);
+    this.scene.start('moveLearn', { creatureUid: leader.uid, returnScene: 'wild' });
   }
 
   private talkResearcher(): void {
