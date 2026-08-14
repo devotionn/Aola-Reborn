@@ -1,0 +1,63 @@
+{
+  "compressionlevel": -1,
+  "height": 18,
+  "infinite": false,
+  "layers": [
+    {
+      "id": 1,
+      "name": "Barriers",
+      "objects": [
+        { "id": 1, "name": "north-ridge", "type": "barrier", "x": 0, "y": 80, "width": 1280, "height": 42 },
+        { "id": 2, "name": "west-rocks", "type": "barrier", "x": 0, "y": 120, "width": 105, "height": 500 },
+        { "id": 3, "name": "east-rocks", "type": "barrier", "x": 1175, "y": 120, "width": 105, "height": 500 },
+        { "id": 4, "name": "crystal-lake", "type": "barrier", "x": 475, "y": 300, "width": 330, "height": 180 },
+        { "id": 5, "name": "west-grove", "type": "barrier", "x": 190, "y": 170, "width": 170, "height": 115 },
+        { "id": 6, "name": "east-grove", "type": "barrier", "x": 920, "y": 185, "width": 170, "height": 110 }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": 2,
+      "name": "EncounterZones",
+      "objects": [
+        { "id": 7, "name": "moss-meadow", "type": "encounter", "x": 130, "y": 340, "width": 280, "height": 230 },
+        { "id": 8, "name": "ember-fern", "type": "encounter", "x": 865, "y": 340, "width": 280, "height": 230 }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": 3,
+      "name": "Points",
+      "objects": [
+        { "id": 9, "name": "return-gate", "type": "portal", "x": 575, "y": 625, "width": 130, "height": 48 },
+        { "id": 10, "name": "warden", "type": "npc", "x": 395, "y": 190, "width": 70, "height": 70 },
+        { "id": 11, "name": "resonance-stone", "type": "quest", "x": 835, "y": 175, "width": 80, "height": 80 },
+        { "id": 12, "name": "mist-gate", "type": "portal", "x": 575, "y": 128, "width": 130, "height": 48 }
+      ],
+      "opacity": 1,
+      "type": "objectgroup",
+      "visible": true,
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "nextlayerid": 4,
+  "nextobjectid": 13,
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "tiledversion": "1.11.2",
+  "tileheight": 40,
+  "tilesets": [],
+  "tilewidth": 40,
+  "type": "map",
+  "version": "1.10",
+  "width": 32
+}
