@@ -40,6 +40,10 @@ export const species: Record<string, Species> = {
     id: 'starlitBun', name: '星辉兔', element: 'neutral', symbol: '星', description: '夜里耳尖会浮现微弱星点。',
     baseStats: { hp: 58, spirit: 58, focus: 54, speed: 76 }, moveIds: ['starBump', 'cometDash', 'pebbleShot', 'sparkNibble'], tameRate: 0.55,
   },
+  mossLanternMoth: {
+    id: 'mossLanternMoth', name: '苔灯蛾', element: 'nature', symbol: '苔', description: '只在烬苔林地暮色中出现，翅面会吸附星屑并泛出柔和绿光。',
+    baseStats: { hp: 60, spirit: 76, focus: 55, speed: 79 }, moveIds: ['leafCut', 'seedBurst', 'staticBolt', 'cometDash'], tameRate: 0.3,
+  },
   auroraDeer: {
     id: 'auroraDeer', name: '曜角鹿', element: 'electric', symbol: '曜', description: '星落原野的古老守护星灵，角上流动着像极光一样的微光。',
     baseStats: { hp: 96, spirit: 82, focus: 70, speed: 68 }, moveIds: ['sparkNibble', 'cometDash', 'staticBolt', 'thunderSkip'], tameRate: 0.08,
